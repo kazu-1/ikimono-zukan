@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全体マップ | 生き物図鑑</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #full-map { height: calc(100vh - 64px); } /* ヘッダー分を引いた全画面 */
+        /* ★ポップアップの制限を解除し、中身を整える */
+        .leaflet-popup-content-wrapper {
+            width: 340px;      /* ポップアップ自体の幅を固定 */
+            border-radius: 12px;
+            padding: 0;        /* 余計な余白を消す */
+            overflow: hidden;
+        }
+
+        .leaflet-popup-content {
+            width: 340px !important; /* 中身をラッパーに合わせる */
+            margin: 0 !important;    /* デフォルトの余白をリセット */
+        }
+
+        /* ポップアップ内の画像設定 */
+        .popup-img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover; /* 枠に合わせて切り抜く */
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-teal-600 text-white shadow-md p-4 flex justify-between items-center">
+        <h1 class="text-xl font-bold cursor-pointer" onclick="location.href='/'">生き物図鑑</h1>
+        <div class="space-x-4">
+            <a href="/" class="text-sm bg-teal-700 px-3 py-2 rounded-lg hover:bg-teal-800 transition">リスト表示</a>
+            <a href="/upload" class="text-sm bg-orange-500 px-3 py-2 rounded-lg hover:bg-orange-600 transition">投稿する</a>
+        </div>
+    </header>
+
+    <main id="full-map"></main>
+
+    <script>
+        // 地図の初期化（日本全体が見えるくらいの位置）
+        const map = L.map('full-map').setView([35.6895, 139.6917], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Pythonから渡されたデータをJavaScriptの配列にする
+        const items = {{ items | tojson | safe }};
+        const bounds = [];
+
+        items.forEach(item => {
+            if (item.latitude && item.longitude) {
+                const pos = [item.latitude, item.longitude];
+                bounds.push(pos);
+
+                // ピンを立てる
+                const marker = L.marker(pos).addTo(map);
+                
+                // ピンをクリックした時のポップアップ
+                const popupContent = `
+                    <div style="width: 340px;">
+                        <img src="${item.image_urls[0]}" class="popup-img">
+                        
+                        <div class="p-4">
+                            <p class="font-bold text-lg text-gray-800 mb-1">
+                                ${item.species_name || '名称不明'}
+                            </p>
+                            <div class="flex gap-2 mb-2">
+                                <span class="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">${item.category}</span>
+                                ${item.is_identified ? '<span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">同定済</span>' : ''}
+                            </div>
+                            <p class="text-xs text-blue-600 flex items-center">
+                                <span class="mr-1">📍</span>${item.location_name}
+                            </p>
+                        </div>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+            }
+        });
+
+        // 全てのピンが収まるように地図を表示範囲を自動調整
+        if (bounds.length > 0) {
+            map.fitBounds(bounds);
+        }
+    </script>
+</body>
+</html>
