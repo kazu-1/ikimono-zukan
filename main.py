@@ -17,10 +17,6 @@ templates = Jinja2Templates(directory=".")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    # ローカル開発用（バックアップ）
-    SUPABASE_URL = "https://snogytqcoylmyownkwgu.supabase.co"
-    SUPABASE_KEY = "sb_publishable_LjGjTfA4oAIdGfLVO8AF3Q_jNPNj6rI"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 位置情報を抜き出す補助関数 ---
