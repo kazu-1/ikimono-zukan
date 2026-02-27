@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新規投稿 | 生き物図鑑</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            /* 背景画像の設定 */
+            background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=80'); /* 自然の景色の例 */
+            background-attachment: fixed; /* スクロールしても背景を動かさない */
+            background-size: cover;      /* 画面いっぱいに広げる */
+            background-position: center; /* 中央合わせ */
+            position: relative;
+        }
+
+        /* 文字を読みやすくするための半透明の膜 */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.7); /* 白い半透明（0.7は透明度） */
+            z-index: -1; /* コンテンツより後ろに配置 */
+        }
+
+        /* カードなどの白背景を少し透けさせるとおしゃれ */
+        .bg-white {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(5px); /* 背景をぼかす（イマドキな表現） */
+        }
+    </style>
 </head>
 <body class="bg-gray-50 text-gray-900 pt-10 pb-20">
     <div class="max-w-2xl mx-auto px-6">

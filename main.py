@@ -5,6 +5,7 @@ from typing import List, Optional
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from supabase import Client, create_client
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
@@ -12,6 +13,7 @@ from geopy.geocoders import Nominatim
 
 app = FastAPI()
 templates = Jinja2Templates(directory=".")
+app.mount("/photo", StaticFiles(directory="photo"), name="photo")
 
 # --- Supabase設定 ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
