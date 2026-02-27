@@ -23,6 +23,9 @@ print("\n" + "="*30)
 print("DEBUG: ENVIRONMENT VARIABLES CHECK")
 print(f"URL: {SUPABASE_URL if SUPABASE_URL else '❌ NOT FOUND'}")
 
+print(f"DEBUG: Python Version = {os.sys.version}")
+print(f"DEBUG: Connecting to {SUPABASE_URL}")
+
 if SUPABASE_KEY:
     # セキュリティのため最初の10文字と文字数だけ表示
     print(f"KEY (Start): {SUPABASE_KEY[:10]}...")
