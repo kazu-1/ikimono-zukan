@@ -13,11 +13,35 @@ from PIL.ExifTags import TAGS, GPSTAGS
 app = FastAPI()
 templates = Jinja2Templates(directory=".")
 
-# --- Supabase設定 ---
+# --- Supabase設定 (デバッグ・ログ付き) ---
+# os.environ.get で環境変数を取得
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# --- RenderのLogs画面に出力される情報 ---
+print("\n" + "="*30)
+print("DEBUG: ENVIRONMENT VARIABLES CHECK")
+print(f"URL: {SUPABASE_URL if SUPABASE_URL else '❌ NOT FOUND'}")
+
+if SUPABASE_KEY:
+    # セキュリティのため最初の10文字と文字数だけ表示
+    print(f"KEY (Start): {SUPABASE_KEY[:10]}...")
+    print(f"KEY (Length): {len(SUPABASE_KEY)} characters")
+else:
+    print("KEY: ❌ NOT FOUND")
+print("="*30 + "\n")
+
+# 環境変数が欠けている場合は、Supabaseクライアントを作る前にエラーを出す
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("環境変数(SUPABASE_URL/KEY)が正しく設定されていません。RenderのSettingsを確認してください。")
+
+# ここでエラーが出る場合は「値の中身」が間違っています
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    print("✅ Supabase client created successfully.")
+except Exception as e:
+    print(f"❌ Failed to create Supabase client: {e}")
+    raise e
 
 # --- 位置情報を抜き出す補助関数 ---
 def get_gps_location(image_content):
