@@ -118,6 +118,14 @@
                     <option value="未同定">未同定</option>
                 </select>
             </div>
+
+            <div class="flex justify-end">
+                <button type="button" onclick="toggleSort()" class="group flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-teal-600 transition-colors">
+                    <span class="opacity-70">並び替え:</span>
+                    <span id="sortLabel">最近の投稿順</span>
+                    <span id="sortIcon" class="inline-block transition-transform duration-300">↓</span>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -127,7 +135,8 @@
             <div onclick='openEditModal({{ item | tojson | safe }})' 
                 class="observation-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
                 data-category="{{ item.category }}"
-                data-identified="{% if item.is_identified %}同定済{% else %}未同定{% endif %}">
+                data-identified="{% if item.is_identified %}同定済{% else %}未同定{% endif %}"
+                data-date="{{ item.created_at }}">
                 <img src="{{ item.image_urls[0] }}" class="w-full h-48 object-cover">
                 <div class="p-4 flex-grow">
                     <div class="flex items-center justify-between mb-2">
@@ -364,6 +373,40 @@
                 console.error("通信エラー:", error);
             }
         };
+
+        let currentSortOrder = 'newest'; // 初期状態
+
+        function toggleSort() {
+            const container = document.querySelector('main > div.grid');
+            const cards = Array.from(container.querySelectorAll('.observation-card'));
+            const label = document.getElementById('sortLabel');
+            const icon = document.getElementById('sortIcon');
+
+            // モードの切り替え
+            if (currentSortOrder === 'newest') {
+                currentSortOrder = 'oldest';
+                label.innerText = '登録が古い順';
+                icon.innerText = '↑';
+                icon.style.transform = 'rotate(180deg)'; // アイコンを回す演出
+            } else {
+                currentSortOrder = 'newest';
+                label.innerText = '最近の投稿順';
+                icon.innerText = '↓';
+                icon.style.transform = 'rotate(0deg)';
+            }
+
+            // ソート実行
+            cards.sort((a, b) => {
+                const dateA = new Date(a.getAttribute('data-date'));
+                const dateB = new Date(b.getAttribute('data-date'));
+                return currentSortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+            });
+
+            // フェードアウトさせてから再配置するとさらにモダン
+            cards.forEach(card => {
+                container.appendChild(card);
+            });
+        }
         </script>
     </main>
 </body>
