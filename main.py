@@ -266,7 +266,6 @@ async def do_upload(
         insert_data = {
             "user_id": user_id,
             "created_by": display_name,  # 最初の登録者名
-            "updated_by": display_name,  # 最終更新者名（初期値）
             "species_name": species_name,
             "is_identified": is_identified,
             "observed_on": observed_on,
@@ -289,25 +288,52 @@ async def do_upload(
 @app.post("/do_update/{id}")
 async def do_update(
     id: str,
-    username: str = Form(...),
+    request: Request,
     species_name: Optional[str] = Form(None),
     is_identified: bool = Form(False),
-    observed_on: str = Form(...),
+    observed_on: Optional[str] = Form(None), # 空欄を許容するためにOptionalに変更
     location_name: str = Form(...),
     category: str = Form(...),
     notes: Optional[str] = Form(None)
 ):
+    
+    # --- 現在ログインしているユーザー（編集者）を特定 ---
+    token = request.cookies.get("access_token")
+    if not token:
+        return JSONResponse(status_code=401, content={"error": "ログインが必要です"})
+    
+    try:
+        user_res = supabase.auth.get_user(token)
+        current_user = user_res.user
+        # 現在の編集者の表示名を取得
+        editor_name = current_user.user_metadata.get("display_name") or current_user.email
+    except Exception:
+        return JSONResponse(status_code=401, content={"error": "認証に失敗しました"})
+    
+    # --- サーバー側で現在時刻を生成 ---
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    # --- 更新用データの作成 ---
     update_data = {
-        "username": username,
+        "updated_by": editor_name,
+        "updated_at": now,
         "species_name": species_name,
         "is_identified": is_identified,
-        "observed_on": observed_on,
         "location_name": location_name,
         "category": category,
         "notes": notes
     }
-    supabase.table("observations").update(update_data).eq("id", id).execute()
-    return JSONResponse(content={"status": "success"})
+
+    if observed_on:
+        update_data["observed_on"] = observed_on
+
+    try:
+        # Supabaseの更新実行
+        supabase.table("observations").update(update_data).eq("id", id).execute()
+        return JSONResponse(content={"status": "success"})
+    except Exception as e:
+        print(f"更新エラー: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # 【5】 全体マップページを表示
 @app.get("/map", response_class=HTMLResponse)
