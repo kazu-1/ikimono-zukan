@@ -4,3 +4,4 @@ jinja2
 python-multipart
 supabase==2.13.0
 pillow
+geopy

@@ -14,7 +14,7 @@
         </header>
 
         <div class="bg-white rounded-2xl shadow-xl p-8">
-            <form action="/do_upload" method="post" enctype="multipart/form-data" class="space-y-6">
+            <form id="uploadForm" class="space-y-6">
                 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">登録者名</label>
@@ -40,7 +40,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">観察日</label>
-                        <input type="date" name="observed_on" required
+                        <input type="date" name="observed_on" id="observed_on" required
                             class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none">
                     </div>
                     <div>
@@ -58,23 +58,26 @@
                     </div>
                 </div>
 
-                <div>
+                <div id="location-section">
                     <label class="block text-sm font-bold text-gray-700 mb-2">場所</label>
-                    <input type="text" name="location_name" required placeholder="例：〇〇海岸、北側の岩場"
-                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none">
+                    <input type="text" id="location_name" name="location_name" placeholder="画像を読み込むと自動取得します"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50 focus:ring-2 focus:ring-teal-500 outline-none transition">
+                    <p id="location-hint" class="mt-1 text-xs text-gray-500">※GPSがない場合は手入力してください</p>
                 </div>
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-2">写真</label>
                     <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-teal-500 transition">
                         <div class="space-y-1 text-center">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <svg id="upload-icon" class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
-                            <div class="flex text-sm text-gray-600">
+                            <div id="loading-spinner" class="hidden mx-auto h-12 w-12 animate-spin rounded-full border-4 border-teal-500 border-t-transparent"></div>
+                            
+                            <div class="flex text-sm text-gray-600 justify-center">
                                 <label class="relative cursor-pointer bg-white rounded-md font-medium text-teal-600 hover:text-teal-500 focus-within:outline-none">
-                                    <span>ファイルを選択</span>
-                                    <input type="file" name="files" multiple required class="sr-only">
+                                    <span id="file-label-text">ファイルを選択</span>
+                                    <input type="file" id="files" name="files" multiple required class="sr-only">
                                 </label>
                                 <p class="pl-1">またはドラッグ＆ドロップ</p>
                             </div>
@@ -94,8 +97,8 @@
                         class="flex-1 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold hover:bg-gray-300 transition shadow-sm">
                         キャンセル
                     </button>
-                    <button type="submit" 
-                        class="flex-[2] bg-teal-600 text-white py-4 rounded-xl font-bold hover:bg-teal-700 shadow-lg transition transform active:scale-95">
+                    <button type="submit" id="submit-btn"
+                        class="flex-[2] bg-teal-600 text-white py-4 rounded-xl font-bold hover:bg-teal-700 shadow-lg transition transform active:scale-95 disabled:bg-gray-400">
                         投稿を公開する
                     </button>
                 </div>
@@ -104,11 +107,68 @@
     </div>
 
     <script>
-        // ファイルが選択された時に名前を表示するなどの工夫が必要ならここに追記
-        const fileInput = document.querySelector('input[type="file"]');
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('files');
+        const locationInput = document.getElementById('location_name');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const uploadIcon = document.getElementById('upload-icon');
+        const fileLabelText = document.getElementById('file-label-text');
+
+        // 今日の日付をデフォルトセット
+        document.getElementById('observed_on').valueAsDate = new Date();
+
+        // ファイル選択時の表示変更
         fileInput.addEventListener('change', (e) => {
-            const fileName = e.target.files.length > 0 ? `${e.target.files.length}枚の画像を選択中` : 'ファイルを選択';
-            e.target.previousElementSibling.innerText = fileName;
+            const count = e.target.files.length;
+            fileLabelText.innerText = count > 0 ? `${count}枚の画像を選択中` : 'ファイルを選択';
+        });
+
+        // フォーム送信処理（Fetch APIを使用）
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UIを「送信中」状態に
+            submitBtn.disabled = true;
+            submitBtn.innerText = "処理中...";
+            uploadIcon.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/do_upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.status === 400 && result.status === 'need_location') {
+                    // GPSがなかった場合の処理
+                    alert(result.message);
+                    locationInput.classList.remove('bg-gray-50');
+                    locationInput.classList.add('border-red-500', 'bg-white');
+                    locationInput.focus();
+                    
+                    // UIを元に戻す（ユーザーに入力させるため）
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = "投稿を公開する";
+                    uploadIcon.classList.remove('hidden');
+                    loadingSpinner.classList.add('hidden');
+                } else if (response.ok) {
+                    alert("投稿が完了しました！");
+                    window.location.href = "/";
+                } else {
+                    throw new Error(result.error || "予期せぬエラーが発生しました");
+                }
+            } catch (err) {
+                alert("エラー: " + err.message);
+                submitBtn.disabled = false;
+                submitBtn.innerText = "投稿を公開する";
+                uploadIcon.classList.remove('hidden');
+                loadingSpinner.classList.add('hidden');
+            }
         });
     </script>
 </body>
