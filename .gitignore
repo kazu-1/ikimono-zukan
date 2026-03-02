@@ -14,3 +14,6 @@ env/
 # OSが生成するゴミファイル
 .DS_Store
 Thumbs.db
+
+# Google Cloud Service Account Key
+key/*.json

@@ -10,7 +10,17 @@ from supabase import Client, create_client
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from geopy.geocoders import Nominatim
+from google.cloud import vision
 
+# Google Vision APIの読み込み
+KEY_PATH = os.path.join(os.getcwd(), "key", "google-vision-key.json")
+
+if os.path.exists(KEY_PATH):
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = KEY_PATH
+    vision_client = vision.ImageAnnotatorClient()
+    print("✅ Google Vision API credentials set.")
+else:
+    print("⚠️ Google Vision APIのキーファイルが見つかりません。")
 
 app = FastAPI()
 templates = Jinja2Templates(directory=".")
@@ -90,6 +100,67 @@ def get_gps_location(image_content):
     except Exception as e:
         print(f"位置情報解析エラー: {e}")
     return None, None
+
+@app.post("/suggest_category")
+async def get_suggestion(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+
+        # 画像が空でないか確認
+        if not content:
+            return JSONResponse(status_code=400, content={"error": "Empty file"})
+
+        image = vision.Image(content=content)
+
+        # 特徴量としてラベル検出を指定
+        response = vision_client.label_detection(image=image)
+        # 信頼度（score）が高い順に並んだラベルを取得
+        labels = response.label_annotations        
+        
+        if response.error.message:
+            print(f"Vision API Error: {response.error.message}")
+            return JSONResponse(status_code=500, content={"error": response.error.message})
+
+        labels = response.label_annotations
+        keywords = [label.description.lower() for label in labels]
+        print(f"Keywords: {keywords}")
+
+        # アプリのカテゴリ名とVision APIのキーワードのマッピング
+        mapping = {
+            "さかな": ["fish", "marine biology", "aquarium", "fin", "underwater"],
+            "貝類": ["shell", "mollusc", "seashell", "clam", "snail"],
+            "甲殻類": ["crustacean", "crab", "shrimp", "lobster"],
+            "鳥": ["bird", "feather", "beak", "wing"],
+            "植物": ["plant", "flower", "leaf", "tree", "flora", "grass", "botany"],
+            "キノコ": ["fungi", "fungus", "mushroom", "edible mushroom", "agaric", "boleto"],
+            "虫": ["insect", "arthropod", "butterfly", "beetle", "bug", "ant", "moth", "dragonfly"]
+            # "哺乳類": ["mammal", "animal", "wildlife", "cat", "dog", "deer", "squirrel"],
+            # "爬虫類・両生類": ["reptile", "amphibian", "frog", "snake", "lizard", "turtle"],
+        }
+
+        # --- 信頼度を考慮した判定ロジック ---
+        suggested = "その他"
+        best_score = 0.0
+
+        for label in labels:
+            description = label.description.lower()
+            score = label.score # これがコンフィデンス（確信度）
+            
+            # 各ラベルがどのカテゴリに属するかチェック
+            for category, tags in mapping.items():
+                if description in tags:
+                    # 最初に見つかった（＝最も確信度が高い）カテゴリを採用
+                    print(f"✅ AI判定採用: {category} (ラベル: '{description}', 確信度: {score:.2%})")
+                    return JSONResponse(content={"suggestion": category})
+
+        # 何も当てはまらなかった場合
+        return JSONResponse(content={"suggestion": "その他"})
+        
+    except Exception as e:
+            import traceback
+            print("--- Detailed Error Traceback ---")
+            traceback.print_exc() # これでエラーの正確な場所がわかります
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # --- ログイン画面を表示する ---
 @app.get("/login", response_class=HTMLResponse)
