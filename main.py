@@ -34,7 +34,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
     # ローカル実行時のためのフォールバック（必要に応じて書き換え）
     print("⚠️ 環境変数が未設定です。ローカル設定を試みます。")
     SUPABASE_URL = "https://snogytqcoylmyownkwgu.supabase.co"
-    SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNub2d5dHFjb3lsbXlvd25rd2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwOTA5NTUsImV4cCI6MjA4NzY2Njk1NX0.Fs45UESjxP8I19-GB_x45AFqtNeFSp7XjI7SREW38wg"
+    SUPABASE_KEY = "sb_publishable_LjGjTfA4oAIdGfLVO8AF3Q_jNPNj6rI"
 
 try:
     # 前後の空白を削除して接続
@@ -276,7 +276,6 @@ async def do_upload(
     location_name: Optional[str] = Form(None),
     files: List[UploadFile] = File(...)
 ):
-    # --- 1. ログインチェックとメタデータの取得 ---
     token = request.cookies.get("access_token")
     if not token:
         return JSONResponse(status_code=401, content={"error": "ログインが必要です"})
@@ -285,10 +284,7 @@ async def do_upload(
         user_res = supabase.auth.get_user(token)
         user = user_res.user
         user_id = user.id
-        
-        # メタデータから display_name を取得（なければメアドを代用する安全策）
         display_name = user.user_metadata.get("display_name") or user.email
-        
     except Exception:
         return JSONResponse(status_code=401, content={"error": "認証に失敗しました"})
 
@@ -297,10 +293,12 @@ async def do_upload(
     final_address = None
 
     try:
-        for file in files:
+        # enumerate を追加してインデックス(i)を取得
+        for i, file in enumerate(files):
             raw_content = await file.read()
             if not raw_content: continue
 
+            # 1枚目の画像からのみ位置情報を取得
             if lat is None and lon is None:
                 lat, lon = get_gps_location(raw_content)
                 if lat and lon:
@@ -316,34 +314,36 @@ async def do_upload(
             img.convert("RGB").save(optimized_io, format="JPEG", quality=85, optimize=True)
             optimized_content = optimized_io.getvalue()
 
-            file_path = f"observations/{datetime.datetime.now().timestamp()}.jpg"
-            supabase.storage.from_("photos").upload(path=file_path, file=optimized_content, file_options={"content-type": "image/jpeg"})
+            # --- 修正ポイント: ファイル名にインデックスを付与して重複を回避 ---
+            ts = datetime.datetime.now().timestamp()
+            file_path = f"observations/{ts}_{i}.jpg" 
+            
+            supabase.storage.from_("photos").upload(
+                path=file_path, 
+                file=optimized_content, 
+                file_options={"content-type": "image/jpeg"}
+            )
             public_url = supabase.storage.from_("photos").get_public_url(file_path)
             image_urls.append(public_url)
 
+        # 場所の確定ロジック
         if not final_address:
             if location_name and location_name.strip():
                 final_address = location_name
             else:
-                return JSONResponse(
-                    status_code=400,
-                    content={
-                        "status": "need_location",
-                        "message": "場所情報を入力してください。"
-                    }
-                )
+                return JSONResponse(status_code=400, content={"status": "need_location", "message": "場所情報を入力してください。"})
 
-        # --- 2. DB登録（ユーザー名を使用） ---
+        # DB登録
         insert_data = {
             "user_id": user_id,
-            "created_by": display_name,  # 最初の登録者名
+            "created_by": display_name,
             "species_name": species_name,
             "is_identified": is_identified,
             "observed_on": observed_on,
             "location_name": final_address,
             "category": category,
             "notes": notes,
-            "image_urls": image_urls,
+            "image_urls": image_urls, # 配列として保存
             "latitude": lat,
             "longitude": lon
         }

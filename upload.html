@@ -7,54 +7,63 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            /* 背景画像の設定 */
-            background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=80'); /* 自然の景色の例 */
-            background-attachment: fixed; /* スクロールしても背景を動かさない */
-            background-size: cover;      /* 画面いっぱいに広げる */
-            background-position: center; /* 中央合わせ */
+            background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=80');
+            background-attachment: fixed;
+            background-size: cover;
+            background-position: center;
             position: relative;
         }
-
-        /* 文字を読みやすくするための半透明の膜 */
         body::before {
             content: "";
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.7); /* 白い半透明（0.7は透明度） */
-            z-index: -1; /* コンテンツより後ろに配置 */
+            background: rgba(255, 255, 255, 0.7);
+            z-index: -1;
         }
-
-        /* カードなどの白背景を少し透けさせるとおしゃれ */
         .bg-white {
-            background-color: rgba(236, 204, 204, 0.9) !important;
-            backdrop-filter: blur(5px); /* 背景をぼかす（イマドキな表現） */
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(5px);
+        }
+        /* スクロールバーを隠す設定 */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 pt-10 pb-20">
-    <div class="max-w-2xl mx-auto my-10">
-        <div class="bg-white/90 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/40">
+    <div class="max-w-2xl mx-auto my-10 px-4">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl border border-white/40">
             <header class="text-center mb-8">
                 <h2 class="text-3xl font-extrabold text-teal-700 mb-2">新規投稿</h2>
                 <p class="text-gray-500 text-sm">見つけた生き物を記録しましょう</p>
             </header>
+            
             <form id="uploadForm" class="space-y-6">
                 <div>
                     <label class="block text-sm font-extrabold text-teal-800 mb-2 ml-1">📸 写真</label>
-                    <div class="mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-gray-300 border-dashed rounded-2xl hover:border-teal-500 transition-all bg-gray-50/50">
-                        <div class="space-y-2 text-center">
+                    <div class="mt-1 flex flex-col items-center justify-center border-2 border-gray-300 border-dashed rounded-2xl hover:border-teal-500 transition-all bg-gray-50/50 p-6">
+                        
+                        <div id="upload-prompt" class="space-y-2 text-center">
                             <svg id="upload-icon" class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
                                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                             <div id="loading-spinner" class="hidden mx-auto h-12 w-12 animate-spin rounded-full border-4 border-teal-500 border-t-transparent"></div>
-                            
                             <div class="flex text-sm text-gray-600 justify-center">
                                 <label class="relative cursor-pointer bg-teal-50 rounded-lg font-bold text-teal-700 hover:bg-teal-100 transition px-3 py-1 mt-2">
                                     <span id="file-label-text">ファイルを選択</span>
                                     <input type="file" id="files" name="files" multiple required class="sr-only">
                                 </label>
                             </div>
-                            <p class="text-xs text-gray-400 mt-2">PNG, JPG, HEIC (ドラッグ＆ドロップ対応)</p>
+                        </div>
+
+                        <div id="preview-container" class="hidden w-full mt-4">
+                            <div id="preview-list" class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                </div>
+                            <p class="text-[10px] text-gray-400 text-center mt-2 italic">※左右にスワイプして確認できます。再度クリックで画像変更。</p>
                         </div>
                     </div>
                 </div>
@@ -88,8 +97,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div class="md:col-span-2">
                         <label class="block text-sm font-bold text-gray-700 mb-2 ml-1">種名</label>
-                        <input type="text" name="species_name" placeholder="例：マツバガイ"
-                            class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none shadow-sm">
+                        <input type="text" id="species_name" name="species_name" placeholder="例：マツバガイ"
+                            class="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none shadow-sm transition-all">
                     </div>
                     <div class="pb-3 px-1">
                         <label class="flex items-center space-x-2 cursor-pointer group">
@@ -130,31 +139,56 @@
     <script>
         const form = document.getElementById('uploadForm');
         const fileInput = document.getElementById('files');
+        const previewList = document.getElementById('preview-list');
+        const previewContainer = document.getElementById('preview-container');
         const locationInput = document.getElementById('location_name');
-        const categorySelect = document.getElementById('category'); // カテゴリ選択欄を取得
+        const categorySelect = document.getElementById('category');
+        const speciesInput = document.getElementById('species_name');
         const submitBtn = document.getElementById('submit-btn');
         const loadingSpinner = document.getElementById('loading-spinner');
         const uploadIcon = document.getElementById('upload-icon');
         const fileLabelText = document.getElementById('file-label-text');
 
-        // 今日の日付をデフォルトセット
         document.getElementById('observed_on').valueAsDate = new Date();
 
-        // ファイル選択時の処理（表示変更 ＋ AIサジェスト）
+        // プレビュー表示関数
+        const updatePreviews = (files) => {
+            previewList.innerHTML = '';
+            if (files.length > 0) {
+                previewContainer.classList.remove('hidden');
+                Array.from(files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = "w-24 h-24 object-cover rounded-lg shadow-sm flex-shrink-0 border-2 border-white";
+                        previewList.appendChild(img);
+                    }
+                    reader.readAsDataURL(file);
+                });
+            } else {
+                previewContainer.classList.add('hidden');
+            }
+        };
+
         fileInput.addEventListener('change', async (e) => {
-            const count = e.target.files.length;
+            const files = e.target.files;
+            const count = files.length;
             fileLabelText.innerText = count > 0 ? `${count}枚の画像を選択中` : 'ファイルを選択';
 
+            // プレビュー更新
+            updatePreviews(files);
+
             if (count > 0) {
-                // --- AIサジェスト機能の開始 ---
-                const file = e.target.files[0]; // 1枚目の画像で判定
+                // AI判定は最初の1枚で行う
+                const file = files[0];
                 const formData = new FormData();
                 formData.append('file', file);
 
-                // 視覚的なフィードバック（判定中...）
                 categorySelect.classList.add('animate-pulse', 'border-teal-400');
+                speciesInput.classList.add('animate-pulse', 'bg-teal-50');
                 const originalLabel = fileLabelText.innerText;
-                fileLabelText.innerText = "🔍 AIが分類を判定中...";
+                fileLabelText.innerText = "🔍 AI解析中...";
 
                 try {
                     const response = await fetch('/suggest_category', {
@@ -164,28 +198,25 @@
                     
                     if (response.ok) {
                         const data = await response.json();
-                        if (data.suggestion) {
-                            categorySelect.value = data.suggestion;
-                            // 成功したら枠線を一瞬光らせるなどの演出
-                            categorySelect.classList.add('ring-2', 'ring-teal-500');
-                            setTimeout(() => categorySelect.classList.remove('ring-2', 'ring-teal-500'), 2000);
+                        if (data.suggestion) categorySelect.value = data.suggestion;
+                        if (data.species) {
+                            speciesInput.value = data.species;
+                            speciesInput.classList.add('ring-2', 'ring-teal-500');
+                            setTimeout(() => speciesInput.classList.remove('ring-2', 'ring-teal-500'), 2000);
                         }
                     }
                 } catch (err) {
                     console.error("AI解析エラー:", err);
                 } finally {
                     categorySelect.classList.remove('animate-pulse', 'border-teal-400');
+                    speciesInput.classList.remove('animate-pulse', 'bg-teal-50');
                     fileLabelText.innerText = originalLabel;
                 }
-                // --- AIサジェスト機能の終了 ---
             }
         });
 
-        // フォーム送信処理（Fetch APIを使用）
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // UIを「送信中」状態に
             submitBtn.disabled = true;
             submitBtn.innerText = "処理中...";
             uploadIcon.classList.add('hidden');
@@ -198,21 +229,13 @@
                     method: 'POST',
                     body: formData
                 });
-
                 const result = await response.json();
 
                 if (response.status === 400 && result.status === 'need_location') {
-                    // GPSがなかった場合の処理
                     alert(result.message);
-                    locationInput.classList.remove('bg-gray-50');
                     locationInput.classList.add('border-red-500', 'bg-white');
                     locationInput.focus();
-                    
-                    // UIを元に戻す
-                    submitBtn.disabled = false;
-                    submitBtn.innerText = "投稿を公開する";
-                    uploadIcon.classList.remove('hidden');
-                    loadingSpinner.classList.add('hidden');
+                    resetUI();
                 } else if (response.ok) {
                     alert("投稿が完了しました！");
                     window.location.href = "/";
@@ -221,12 +244,16 @@
                 }
             } catch (err) {
                 alert("エラー: " + err.message);
-                submitBtn.disabled = false;
-                submitBtn.innerText = "投稿を公開する";
-                uploadIcon.classList.remove('hidden');
-                loadingSpinner.classList.add('hidden');
+                resetUI();
             }
         });
+
+        function resetUI() {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "投稿を公開する";
+            uploadIcon.classList.remove('hidden');
+            loadingSpinner.classList.add('hidden');
+        }
     </script>
 </body>
 </html>
