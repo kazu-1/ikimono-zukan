@@ -26,9 +26,27 @@
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ✅ トースト用のアニメーションスタイルを追加 */
+        .toast-show { 
+            opacity: 1 !important; 
+            transform: translateY(0) !important; 
+            pointer-events: auto !important;
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 pt-10 pb-20">
+
+    <div id="toast" class="fixed top-10 right-10 z-[100] opacity-0 transition-all duration-500 transform translate-y-[-20px] pointer-events-none">
+        <div class="bg-teal-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border-2 border-white/20">
+            <span class="text-2xl">✅</span>
+            <div class="flex flex-col">
+                <span id="toast-message" class="font-bold text-lg">完了しました</span>
+                <span class="text-xs opacity-80">トップページへ戻ります...</span>
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-2xl mx-auto my-10 px-4">
         <div class="bg-white p-8 rounded-3xl shadow-2xl border border-white/40">
             <header class="text-center mb-8">
@@ -146,6 +164,18 @@
 
         document.getElementById('observed_on').valueAsDate = new Date();
 
+        // ✅ showToast 関数の追加
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            toastMsg.innerText = message;
+            toast.classList.add('toast-show');
+            setTimeout(() => {
+                toast.classList.remove('toast-show');
+                setTimeout(() => { window.location.href = "/"; }, 500);
+            }, 2500);
+        }
+
         // プレビュー生成関数
         const updatePreviews = (files) => {
             previewList.innerHTML = '';
@@ -248,8 +278,8 @@
                     document.getElementById('location_name').focus();
                     resetUI();
                 } else if (response.ok) {
-                    alert("投稿が完了しました！");
-                    window.location.href = "/";
+                    // ✅ alert("投稿が完了しました！") を showToast に変更
+                    showToast("投稿が完了しました！🌿");
                 } else {
                     throw new Error(result.error || "予期せぬエラーが発生しました");
                 }
