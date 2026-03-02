@@ -24,14 +24,8 @@
             background-color: rgba(255, 255, 255, 0.9) !important;
             backdrop-filter: blur(5px);
         }
-        /* スクロールバーを隠す設定 */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-900 pt-10 pb-20">
@@ -44,7 +38,7 @@
             
             <form id="uploadForm" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-extrabold text-teal-800 mb-2 ml-1">📸 写真</label>
+                    <label class="block text-sm font-extrabold text-teal-800 mb-2 ml-1">📸 写真 (最大5枚まで)</label>
                     <div class="mt-1 flex flex-col items-center justify-center border-2 border-gray-300 border-dashed rounded-2xl hover:border-teal-500 transition-all bg-gray-50/50 p-6">
                         
                         <div id="upload-prompt" class="space-y-2 text-center">
@@ -52,18 +46,19 @@
                                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                             <div id="loading-spinner" class="hidden mx-auto h-12 w-12 animate-spin rounded-full border-4 border-teal-500 border-t-transparent"></div>
-                            <div class="flex text-sm text-gray-600 justify-center">
-                                <label class="relative cursor-pointer bg-teal-50 rounded-lg font-bold text-teal-700 hover:bg-teal-100 transition px-3 py-1 mt-2">
+                            
+                            <div class="flex flex-col items-center text-sm text-gray-600 justify-center">
+                                <label class="relative cursor-pointer bg-teal-50 rounded-lg font-bold text-teal-700 hover:bg-teal-100 transition px-4 py-2 mt-2">
                                     <span id="file-label-text">ファイルを選択</span>
-                                    <input type="file" id="files" name="files" multiple required class="sr-only">
+                                    <input type="file" id="files" name="files" accept="image/*" multiple required class="sr-only">
                                 </label>
+                                <p id="file-count-msg" class="text-[10px] text-gray-400 mt-2 italic">※ 5枚以内の画像を選択してください</p>
                             </div>
                         </div>
 
-                        <div id="preview-container" class="hidden w-full mt-4">
-                            <div id="preview-list" class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                </div>
-                            <p class="text-[10px] text-gray-400 text-center mt-2 italic">※左右にスワイプして確認できます。再度クリックで画像変更。</p>
+                        <div id="preview-container" class="hidden w-full mt-4 border-t pt-4">
+                            <div id="preview-list" class="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"></div>
+                            <p class="text-[10px] text-gray-400 text-center mt-2 italic">左右にスワイプして確認できます。再度クリックで画像変更。</p>
                         </div>
                     </div>
                 </div>
@@ -141,7 +136,7 @@
         const fileInput = document.getElementById('files');
         const previewList = document.getElementById('preview-list');
         const previewContainer = document.getElementById('preview-container');
-        const locationInput = document.getElementById('location_name');
+        const fileCountMsg = document.getElementById('file-count-msg');
         const categorySelect = document.getElementById('category');
         const speciesInput = document.getElementById('species_name');
         const submitBtn = document.getElementById('submit-btn');
@@ -151,7 +146,7 @@
 
         document.getElementById('observed_on').valueAsDate = new Date();
 
-        // プレビュー表示関数
+        // プレビュー生成関数
         const updatePreviews = (files) => {
             previewList.innerHTML = '';
             if (files.length > 0) {
@@ -171,16 +166,31 @@
             }
         };
 
+        // メインの変更イベント
         fileInput.addEventListener('change', async (e) => {
             const files = e.target.files;
             const count = files.length;
-            fileLabelText.innerText = count > 0 ? `${count}枚の画像を選択中` : 'ファイルを選択';
 
-            // プレビュー更新
+            // 1. バリデーション（5枚制限）
+            if (count > 5) {
+                alert("写真は最大5枚までしかアップロードできません。");
+                e.target.value = ""; // 選択をクリア
+                fileLabelText.innerText = "ファイルを選択";
+                fileCountMsg.innerText = "⚠️ 5枚を超えています";
+                fileCountMsg.classList.add('text-red-500');
+                previewContainer.classList.add('hidden');
+                return;
+            }
+
+            // 2. UI更新
+            fileCountMsg.innerText = "※ 5枚以内の画像を選択してください";
+            fileCountMsg.classList.remove('text-red-500');
+            fileLabelText.innerText = count > 0 ? `${count}枚の画像を選択中` : 'ファイルを選択';
+            
             updatePreviews(files);
 
+            // 3. AI解析 (最初の1枚を使用)
             if (count > 0) {
-                // AI判定は最初の1枚で行う
                 const file = files[0];
                 const formData = new FormData();
                 formData.append('file', file);
@@ -215,8 +225,10 @@
             }
         });
 
+        // 送信処理
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
             submitBtn.disabled = true;
             submitBtn.innerText = "処理中...";
             uploadIcon.classList.add('hidden');
@@ -233,8 +245,7 @@
 
                 if (response.status === 400 && result.status === 'need_location') {
                     alert(result.message);
-                    locationInput.classList.add('border-red-500', 'bg-white');
-                    locationInput.focus();
+                    document.getElementById('location_name').focus();
                     resetUI();
                 } else if (response.ok) {
                     alert("投稿が完了しました！");

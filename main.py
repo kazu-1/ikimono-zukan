@@ -241,6 +241,18 @@ async def logout():
     response.delete_cookie("access_token")
     return response
 
+# --- 画像処理の共通関数（新規・更新両方で使用可能） ---
+def process_image(raw_content: bytes) -> bytes:
+    img = Image.open(io.BytesIO(raw_content))
+    img = ImageOps.exif_transpose(img)
+    max_size = 1280
+    if max(img.width, img.height) > max_size:
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
+
+    optimized_io = io.BytesIO()
+    img.convert("RGB").save(optimized_io, format="JPEG", quality=85, optimize=True)
+    return optimized_io.getvalue()
+
 # 【1】 一覧表示ページ（生き物図鑑）
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
@@ -283,7 +295,6 @@ async def do_upload(
     try:
         user_res = supabase.auth.get_user(token)
         user = user_res.user
-        user_id = user.id
         display_name = user.user_metadata.get("display_name") or user.email
     except Exception:
         return JSONResponse(status_code=401, content={"error": "認証に失敗しました"})
@@ -293,7 +304,10 @@ async def do_upload(
     final_address = None
 
     try:
-        # enumerate を追加してインデックス(i)を取得
+        # 枚数制限の確認（念のため）
+        if len(files) > 5:
+            return JSONResponse(status_code=400, content={"error": "写真は最大5枚までです"})
+
         for i, file in enumerate(files):
             raw_content = await file.read()
             if not raw_content: continue
@@ -304,17 +318,10 @@ async def do_upload(
                 if lat and lon:
                     final_address = get_address_from_coords(lat, lon)
 
-            img = Image.open(io.BytesIO(raw_content))
-            img = ImageOps.exif_transpose(img)
-            max_size = 1280
-            if max(img.width, img.height) > max_size:
-                img.thumbnail((max_size, max_size), Image.LANCZOS)
+            # --- 修正: process_image関数を使用 ---
+            optimized_content = process_image(raw_content)
 
-            optimized_io = io.BytesIO()
-            img.convert("RGB").save(optimized_io, format="JPEG", quality=85, optimize=True)
-            optimized_content = optimized_io.getvalue()
-
-            # --- 修正ポイント: ファイル名にインデックスを付与して重複を回避 ---
+            # Storageへ保存
             ts = datetime.datetime.now().timestamp()
             file_path = f"observations/{ts}_{i}.jpg" 
             
@@ -326,7 +333,6 @@ async def do_upload(
             public_url = supabase.storage.from_("photos").get_public_url(file_path)
             image_urls.append(public_url)
 
-        # 場所の確定ロジック
         if not final_address:
             if location_name and location_name.strip():
                 final_address = location_name
@@ -335,7 +341,7 @@ async def do_upload(
 
         # DB登録
         insert_data = {
-            "user_id": user_id,
+            "user_id": user.id,
             "created_by": display_name,
             "species_name": species_name,
             "is_identified": is_identified,
@@ -343,7 +349,7 @@ async def do_upload(
             "location_name": final_address,
             "category": category,
             "notes": notes,
-            "image_urls": image_urls, # 配列として保存
+            "image_urls": image_urls,
             "latitude": lat,
             "longitude": lon
         }
@@ -362,46 +368,79 @@ async def do_update(
     request: Request,
     species_name: Optional[str] = Form(None),
     is_identified: bool = Form(False),
-    observed_on: Optional[str] = Form(None), # 空欄を許容するためにOptionalに変更
+    observed_on: Optional[str] = Form(None),
     location_name: str = Form(...),
     category: str = Form(...),
-    notes: Optional[str] = Form(None)
+    notes: Optional[str] = Form(None),
+    new_files: List[UploadFile] = File(None)  # 追加画像を受け取る
 ):
-    
-    # --- 現在ログインしているユーザー（編集者）を特定 ---
+    # --- 1. ログインチェック ---
     token = request.cookies.get("access_token")
     if not token:
         return JSONResponse(status_code=401, content={"error": "ログインが必要です"})
     
     try:
         user_res = supabase.auth.get_user(token)
-        current_user = user_res.user
-        # 現在の編集者の表示名を取得
-        editor_name = current_user.user_metadata.get("display_name") or current_user.email
+        editor_name = user_res.user.user_metadata.get("display_name") or user_res.user.email
     except Exception:
         return JSONResponse(status_code=401, content={"error": "認証に失敗しました"})
-    
-    # --- サーバー側で現在時刻を生成 ---
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-    # --- 更新用データの作成 ---
-    update_data = {
-        "updated_by": editor_name,
-        "updated_at": now,
-        "species_name": species_name,
-        "is_identified": is_identified,
-        "location_name": location_name,
-        "category": category,
-        "notes": notes
-    }
-
-    if observed_on:
-        update_data["observed_on"] = observed_on
 
     try:
+        # --- 2. 現在のデータを取得（既存の画像URLリストを確認） ---
+        current_res = supabase.table("observations").select("image_urls").eq("id", id).single().execute()
+        image_urls = current_res.data.get("image_urls") or []
+
+        # --- 3. 新しい写真の追加処理 ---
+        # ファイルが存在し、かつファイル名が空でないものをフィルタリング
+        valid_new_files = [f for f in (new_files or []) if f.filename and len(f.filename) > 0]
+        
+        if valid_new_files:
+            # 合計5枚制限のチェック
+            if len(image_urls) + len(valid_new_files) > 5:
+                return JSONResponse(
+                    status_code=400, 
+                    content={"error": f"写真は合計5枚までです（現在{len(image_urls)}枚）"}
+                )
+
+            for i, file in enumerate(valid_new_files):
+                raw_content = await file.read()
+                if not raw_content: continue
+
+                # 画像の最適化
+                optimized_content = process_image(raw_content)
+
+                # Storageへ保存
+                ts = datetime.datetime.now().timestamp()
+                file_path = f"observations/edit_{id}_{ts}_{i}.jpg"
+                supabase.storage.from_("photos").upload(
+                    path=file_path, 
+                    file=optimized_content, 
+                    file_options={"content-type": "image/jpeg"}
+                )
+                
+                # 公開URLを取得して配列に追加
+                public_url = supabase.storage.from_("photos").get_public_url(file_path)
+                image_urls.append(public_url)
+
+        # --- 4. 更新用データの作成 ---
+        update_data = {
+            "updated_by": editor_name,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "species_name": species_name,
+            "is_identified": is_identified,
+            "location_name": location_name,
+            "category": category,
+            "notes": notes,
+            "image_urls": image_urls  # 更新された画像リスト
+        }
+
+        if observed_on:
+            update_data["observed_on"] = observed_on
+
         # Supabaseの更新実行
         supabase.table("observations").update(update_data).eq("id", id).execute()
         return JSONResponse(content={"status": "success"})
+
     except Exception as e:
         print(f"更新エラー: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
