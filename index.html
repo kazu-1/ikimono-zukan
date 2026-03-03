@@ -299,30 +299,66 @@
         let currentEditingId = null;
         
         function openEditModal(item) {
-            currentEditingId = item.id; // IDを保持
-            
-            // --- 日付を YYYY/MM/DD 形式に整える補助関数 ---
+            currentEditingId = item.id;
+            // サーバー送信用の画像リスト（編集用にコピー）
+            let currentUrls = [...(item.image_urls || [])];
+
             const formatDate = (dateStr) => {
                 if (!dateStr) return '---';
                 return dateStr.substring(0, 10).replace(/-/g, '/');
             };
 
-            // --- 【更新】複数枚写真の表示と「追加ボタン」の統合ロジック ---
             const container = document.getElementById('m_image_container');
             const countBadge = document.getElementById('m_image_count');
-            container.innerHTML = ''; // 以前の表示をクリア
 
-            // 1. 既存画像の描画
-            const imageUrls = item.image_urls || [];
-            imageUrls.forEach((url, index) => {
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = `写真 ${index + 1}`;
-                img.onclick = () => window.open(url, '_blank'); 
-                container.appendChild(img);
-            });
+            // --- 【修正】既存画像の描画と削除ロジック ---
+            const renderImages = () => {
+                container.innerHTML = '';
+                currentUrls.forEach((url, index) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "relative snap-center shrink-0 w-48 h-full group";
+                    
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = "w-full h-full object-cover rounded-xl cursor-pointer";
+                    img.onclick = () => window.open(url, '_blank');
+                    
+                    // 削除ボタン
+                    const delBtn = document.createElement('button');
+                    delBtn.type = "button";
+                    delBtn.className = "absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-lg hover:bg-red-600 transition-all";
+                    delBtn.innerHTML = "×";
+                    delBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        if (currentUrls.length <= 1) {
+                            alert("写真は最低1枚必要です。");
+                            return;
+                        }
+                        currentUrls.splice(index, 1);
+                        renderImages(); // 再描画
+                    };
 
-            // 2. 「追加ボタン」をギャラリーの最後に追加
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(delBtn);
+                    container.appendChild(wrapper);
+                });
+                
+                container.appendChild(addCard);
+                if (countBadge) countBadge.textContent = `${currentUrls.length}枚`;
+                
+                // フォーム送信時に現在のURLリストを渡す（隠しinputがあればセット、なければ作成）
+                let hiddenInput = document.getElementById('m_existing_urls');
+                if (!hiddenInput) {
+                    hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.id = 'm_existing_urls';
+                    hiddenInput.name = 'existing_urls';
+                    document.getElementById('editForm').appendChild(hiddenInput);
+                }
+                hiddenInput.value = JSON.stringify(currentUrls);
+            };
+
+            // 2. 「追加ボタン」の定義
             const addCard = document.createElement('label');
             addCard.className = "snap-center shrink-0 w-48 h-full border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-white hover:border-teal-400 hover:text-teal-600 transition-all group/add bg-gray-50/50";
             addCard.innerHTML = `
@@ -332,49 +368,41 @@
                 <span class="text-[10px] font-bold text-gray-400 group-hover/add:text-teal-600 uppercase tracking-wider">写真を追加</span>
                 <input type="file" name="new_files" id="m_new_files" accept="image/*" multiple class="hidden">
             `;
-            container.appendChild(addCard);
 
-            // 3. 追加ボタンへのバリデーション & プレビューイベント設定
+            renderImages(); // 初回実行
+
+            // 3. 追加ボタンのイベント
             const newFileInput = addCard.querySelector('input');
             newFileInput.addEventListener('change', function(e) {
-                // 現在表示されている画像の総数（既存 + プレビュー済み）
-                const currentTotal = container.querySelectorAll('img').length;
+                const currentTotal = container.querySelectorAll('div.relative').length; // ラッパーの数を数える
                 const selectedFiles = Array.from(e.target.files);
                 
                 if (currentTotal + selectedFiles.length > 5) {
                     alert(`写真は合計5枚までです。（現在: ${currentTotal}枚, 選択: ${selectedFiles.length}枚）`);
-                    e.target.value = ""; // 選択リセット
+                    e.target.value = "";
                     return;
                 }
 
-                // 既存のプレビュー（未保存分）があれば一旦クリアして最新の選択分を表示
                 container.querySelectorAll('.preview-new').forEach(el => el.remove());
-
                 selectedFiles.forEach(file => {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         const img = document.createElement('img');
                         img.src = event.target.result;
-                        img.className = "preview-new border-2 border-teal-400 opacity-80"; // 未保存とわかるスタイル
-                        // 追加ボタンの直前に挿入
+                        img.className = "preview-new border-2 border-teal-400 opacity-80 w-48 h-full object-cover rounded-xl snap-center shrink-0";
                         container.insertBefore(img, addCard);
                     };
                     reader.readAsDataURL(file);
                 });
-
                 if (countBadge) countBadge.textContent = `${currentTotal + selectedFiles.length}枚`;
             });
 
-            if (countBadge) countBadge.textContent = `${imageUrls.length}枚`;
-
-            // --- 登録・編集情報をセット ---
+            // --- 以下、既存のセット処理 ---
             document.getElementById('m_display_name').textContent = item.created_by || '不明';
             document.getElementById('m_created_at').textContent = formatDate(item.created_at);
-            
             document.getElementById('m_updated_by').textContent = item.updated_by || '（未編集）';
             document.getElementById('m_updated_at').textContent = item.updated_at ? formatDate(item.updated_at) : '---';
 
-            // --- フォーム項目のセット ---
             document.getElementById('m_species').value = item.species_name || '';
             document.getElementById('m_identified').checked = item.is_identified || false;
             document.getElementById('m_date').value = item.observed_on || '';
@@ -384,33 +412,25 @@
             
             document.getElementById('editForm').action = "/do_update/" + item.id;
 
-            // --- 地図処理 ---
             const lat = item.latitude;
             const lon = item.longitude;
             const mapContainer = document.getElementById('map');
             const msg = document.getElementById('no-location-msg');
-
             const modalBody = document.querySelector('#editModal > div');
             if (modalBody) modalBody.scrollTop = 0;
 
             if (lat && lon) {
                 if (mapContainer) mapContainer.classList.remove('hidden');
                 if (msg) msg.classList.add('hidden');
-                
                 setTimeout(() => {
                     if (typeof map === 'undefined' || !map) {
                         map = L.map('map').setView([lat, lon], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap'
-                        }).addTo(map);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
                         marker = L.marker([lat, lon]).addTo(map);
                     } else {
                         map.setView([lat, lon], 15);
-                        if (typeof marker !== 'undefined' && marker) {
-                            marker.setLatLng([lat, lon]);
-                        } else {
-                            marker = L.marker([lat, lon]).addTo(map);
-                        }
+                        if (typeof marker !== 'undefined' && marker) marker.setLatLng([lat, lon]);
+                        else marker = L.marker([lat, lon]).addTo(map);
                         map.invalidateSize();
                     }
                 }, 300);

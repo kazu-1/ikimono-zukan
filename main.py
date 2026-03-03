@@ -1,6 +1,7 @@
 import datetime
 import io
 import os
+import json
 from typing import List, Optional
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -382,7 +383,8 @@ async def do_update(
     location_name: str = Form(...),
     category: str = Form(...),
     notes: Optional[str] = Form(None),
-    new_files: List[UploadFile] = File(None)  # 追加画像を受け取る
+    existing_urls: str = Form("[]"),  # 💡 削除後の既存URLリストを受け取る
+    new_files: List[UploadFile] = File(None)
 ):
     # --- 1. ログインチェック ---
     token = request.cookies.get("access_token")
@@ -390,22 +392,23 @@ async def do_update(
         return JSONResponse(status_code=401, content={"error": "ログインが必要です"})
     
     try:
+        # get_userの戻り値に合わせて修正（必要に応じて）
         user_res = supabase.auth.get_user(token)
-        editor_name = user_res.user.user_metadata.get("display_name") or user_res.user.email
+        user = user_res.user
+        editor_name = user.user_metadata.get("display_name") or user.email
     except Exception:
         return JSONResponse(status_code=401, content={"error": "認証に失敗しました"})
 
     try:
-        # --- 2. 現在のデータを取得（既存の画像URLリストを確認） ---
-        current_res = supabase.table("observations").select("image_urls").eq("id", id).single().execute()
-        image_urls = current_res.data.get("image_urls") or []
+        # --- 2. 既存の画像URLリストをJSの送信内容から復元 ---
+        # JS側で JSON.stringify されたものを受け取る
+        image_urls = json.loads(existing_urls)
 
         # --- 3. 新しい写真の追加処理 ---
-        # ファイルが存在し、かつファイル名が空でないものをフィルタリング
-        valid_new_files = [f for f in (new_files or []) if f.filename and len(f.filename) > 0]
+        valid_new_files = [f for f in (new_files or []) if f.filename]
         
         if valid_new_files:
-            # 合計5枚制限のチェック
+            # 合計5枚制限のチェック（削除後の枚数 + 新規枚数）
             if len(image_urls) + len(valid_new_files) > 5:
                 return JSONResponse(
                     status_code=400, 
@@ -416,19 +419,19 @@ async def do_update(
                 raw_content = await file.read()
                 if not raw_content: continue
 
-                # 画像の最適化
+                # 画像の最適化（process_image関数がある前提）
                 optimized_content = process_image(raw_content)
 
-                # Storageへ保存
                 ts = datetime.datetime.now().timestamp()
                 file_path = f"observations/edit_{id}_{ts}_{i}.jpg"
+                
+                # Storageへ保存 (PHOTOSバケット名は環境に合わせて)
                 supabase.storage.from_("photos").upload(
                     path=file_path, 
                     file=optimized_content, 
                     file_options={"content-type": "image/jpeg"}
                 )
                 
-                # 公開URLを取得して配列に追加
                 public_url = supabase.storage.from_("photos").get_public_url(file_path)
                 image_urls.append(public_url)
 
@@ -441,7 +444,7 @@ async def do_update(
             "location_name": location_name,
             "category": category,
             "notes": notes,
-            "image_urls": image_urls  # 更新された画像リスト
+            "image_urls": image_urls  # 💡 編集・追加が反映されたリストで上書き
         }
 
         if observed_on:
