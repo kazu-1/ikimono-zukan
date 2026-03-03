@@ -211,18 +211,24 @@
                             <input type="text" name="species_name" id="m_species" class="w-full border rounded-md p-2 focus:ring-2 focus:ring-teal-500 outline-none">
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">日付</label>
-                                <input type="date" name="observed_on" id="m_date" class="w-full border rounded-md p-2 focus:ring-2 focus:ring-teal-500 outline-none">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="block text-sm font-bold text-gray-700 ml-1">日付</label>
+                                <input type="date" name="observed_on" id="m_date" 
+                                    class="w-full h-[46px] px-4 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all">
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700">分類</label>
-                                <select name="category" id="m_category" class="w-full border rounded-md p-2 focus:ring-2 focus:ring-teal-500 outline-none">
-                                    <option>さかな</option><option>貝類</option><option>甲殻類</option><option>海藻</option>
-                                    <option>鳥</option><option>植物</option><option>キノコ</option>
-                                    <option>虫</option><option>その他</option>
-                                </select>
+
+                            <div class="flex flex-col gap-1.5">
+                                <label class="block text-sm font-bold text-gray-700 ml-1">分類</label>
+                                <div class="relative">
+                                    <select name="category" id="m_category" 
+                                        class="w-full h-[46px] appearance-none bg-gray-50 border border-gray-200 rounded-xl px-4 text-sm focus:ring-2 focus:ring-teal-500 outline-none transition-all cursor-pointer">
+                                        <option>さかな</option><option>貝類</option><option>甲殻類</option><option>海藻</option>
+                                        <option>鳥</option><option>植物</option><option>キノコ</option>
+                                        <option>虫</option><option>その他</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-[10px]">▼</div>
+                                </div>
                             </div>
                         </div>
 
