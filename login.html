@@ -71,6 +71,11 @@
                     class="hidden w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition">
                     この内容で登録する
                 </button>
+
+                <button type="button" id="back-to-login" onclick="toggleSignupMode(false)"
+                    class="hidden w-full text-gray-500 text-sm font-medium hover:underline transition py-2">
+                    すでにアカウントをお持ちの方（ログイン）
+                </button>
             </div>
         </form>
     </div>
@@ -82,13 +87,25 @@
             const loginBtn = document.getElementById('login-btn');
             const signupTrigger = document.getElementById('signup-trigger');
             const signupSubmit = document.getElementById('signup-submit');
+            const backToLogin = document.getElementById('back-to-login'); // 追加
 
             if (isSignup) {
+                // 新規登録モード
                 usernameField.classList.remove('hidden');
                 signupSubmit.classList.remove('hidden');
+                backToLogin.classList.remove('hidden'); // 戻るボタンを表示
                 loginBtn.classList.add('hidden');
                 signupTrigger.classList.add('hidden');
                 usernameInput.setAttribute('required', 'required');
+            } else {
+                // ログインモードに戻る
+                usernameField.classList.add('hidden');
+                signupSubmit.classList.add('hidden');
+                backToLogin.classList.add('hidden'); // 戻るボタンを隠す
+                loginBtn.classList.remove('hidden');
+                signupTrigger.classList.remove('hidden');
+                usernameInput.removeAttribute('required');
+                usernameInput.value = ""; // 入力内容をクリア
             }
         }
     </script>
