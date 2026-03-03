@@ -249,9 +249,20 @@
                             <p id="no-location-msg" class="text-xs text-red-400 mt-2 hidden">📍 位置情報がありません</p>
                         </div>
 
-                        <button type="submit" class="w-full bg-teal-600 text-white py-3 rounded-xl font-bold hover:bg-teal-700 shadow-md transition mt-4">
-                            変更を保存する
-                        </button>
+                        <div class="flex gap-3 mt-6 border-t pt-6">
+                            <button type="button" onclick="confirmDeleteInModal()" 
+                                class="flex-1 bg-red-50 text-red-600 py-3 rounded-xl font-bold hover:bg-red-100 transition flex items-center justify-center gap-2 border border-red-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                削除
+                            </button>
+
+                            <button type="submit" 
+                                class="flex-[2] bg-teal-600 text-white py-3 rounded-xl font-bold hover:bg-teal-700 shadow-md transition transform active:scale-[0.98]">
+                                変更を保存する
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -279,8 +290,11 @@
 
         let map;
         let marker;
+        let currentEditingId = null;
         
         function openEditModal(item) {
+            currentEditingId = item.id; // IDを保持
+            
             // --- 日付を YYYY/MM/DD 形式に整える補助関数 ---
             const formatDate = (dateStr) => {
                 if (!dateStr) return '---';
@@ -499,6 +513,35 @@
             cards.forEach(card => {
                 container.appendChild(card);
             });
+        }
+
+        // 削除実行関数
+        async function confirmDeleteInModal() {
+            if (!currentEditingId) return;
+
+            if (!confirm("この投稿を完全に削除してもよろしいですか？\nこの操作は取り消せません。")) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/delete_post/${currentEditingId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    closeModal(); // モーダルを閉じる
+                    showToast("削除が完了しました 🗑️", "一覧を更新しています...");
+                    
+                    // 1.5秒後にリロードして一覧を最新にする
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    const result = await response.json();
+                    alert("削除に失敗しました: " + (result.message || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Delete Error:", err);
+                alert("通信エラーが発生しました。");
+            }
         }
         </script>
     </main>

@@ -470,3 +470,44 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+# 【6】 削除処理
+@app.delete("/delete_post/{post_id}")
+async def delete_post(post_id: str):
+    try:
+        # 1. DBから投稿情報を取得
+        result = supabase.table("observations").select("image_urls").eq("id", post_id).execute()
+        if not result.data:
+            return JSONResponse(status_code=404, content={"message": "投稿が見つかりません"})
+
+        image_urls = result.data[0].get("image_urls", [])
+
+        # 2. Storageから削除
+        if image_urls:
+            file_paths = []
+            for url in image_urls:
+                if not url: continue
+                
+                # ✅ 修正ポイント: クエリパラメータ (?) を除去してから解析
+                clean_url = url.split("?")[0]
+                
+                # ✅ 修正ポイント: "public/photos/" 以降のパスをすべて取得する
+                # これにより "observations/filename.jpg" が正しく抽出されます
+                if "public/photos/" in clean_url:
+                    path_in_bucket = clean_url.split("public/photos/")[-1]
+                    file_paths.append(path_in_bucket)
+            
+            if file_paths:
+                # 削除実行
+                res = supabase.storage.from_("photos").remove(file_paths)
+                print(f"✅ Storage削除試行: {file_paths}, 結果: {res}")
+
+        # 3. DBからレコードを削除
+        supabase.table("observations").delete().eq("id", post_id).execute()
+        
+        return {"status": "success"}
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"detail": str(e)})
