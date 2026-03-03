@@ -5,3 +5,5 @@ python-multipart
 supabase==2.13.0
 pillow
 geopy
+google-cloud-vision
+google-cloud-storage
