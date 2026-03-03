@@ -13,13 +13,22 @@ from geopy.geocoders import Nominatim
 from google.cloud import vision
 
 # Google Vision APIの読み込み
-KEY_PATH = os.path.join(os.getcwd(), "key", "google-vision-key.json")
+POSSIBLE_KEY_PATHS = [
+    os.path.join(os.getcwd(), "key", "google-vision-key.json"), # ローカル用
+    "/etc/secrets/google-vision-key.json",                     # Render用
+    "google-vision-key.json"                                   # 直下にある場合用
+]
 
-if os.path.exists(KEY_PATH):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = KEY_PATH
-    vision_client = vision.ImageAnnotatorClient()
-    print("✅ Google Vision API credentials set.")
-else:
+found_key = False
+for path in POSSIBLE_KEY_PATHS:
+    if os.path.exists(path):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = path
+        vision_client = vision.ImageAnnotatorClient()
+        print(f"✅ Google Vision API credentials set from: {path}")
+        found_key = True
+        break
+
+if not found_key:
     print("⚠️ Google Vision APIのキーファイルが見つかりません。")
 
 app = FastAPI()
