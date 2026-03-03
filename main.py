@@ -139,6 +139,7 @@ async def get_suggestion(file: UploadFile = File(...)):
             "さかな": ["fish", "marine biology", "aquarium", "fin", "underwater"],
             "貝類": ["shell", "mollusc", "seashell", "clam", "snail"],
             "甲殻類": ["crustacean", "crab", "shrimp", "lobster"],
+            "海藻": ["seaweed", "algae", "kelp", "green algae", "marine plants", "aquatic plant"],            
             "鳥": ["bird", "feather", "beak", "wing"],
             "植物": ["plant", "flower", "leaf", "tree", "flora", "grass", "botany"],
             "キノコ": ["fungi", "fungus", "mushroom", "edible mushroom", "agaric", "boleto"],
