@@ -11,7 +11,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from supabase import Client, create_client
 from PIL import Image, ImageOps
-from PIL.ExifTags import TAGS, GPSTAGS
+from PIL.ExifTags import GPSTAGS
 from geopy.geocoders import Nominatim
 from google import genai
 from google.genai import types
@@ -71,17 +71,19 @@ def get_address_from_coords(lat, lon):
 def get_gps_location(image_content):
     try:
         image = Image.open(io.BytesIO(image_content))
-        exif = image._getexif()
+
+        # 新しいPillow APIで GPS IFD（タグID: 34853）を取得
+        exif = image.getexif()
         if not exif:
+            print("位置情報: EXIFデータなし")
             return None, None
 
-        gps_info = {}
-        for tag, value in exif.items():
-            decoded = TAGS.get(tag, tag)
-            if decoded == "GPSInfo":
-                for t in value:
-                    sub_decoded = GPSTAGS.get(t, t)
-                    gps_info[sub_decoded] = value[t]
+        gps_ifd = exif.get_ifd(34853)
+        if not gps_ifd:
+            print("位置情報: GPS情報なし")
+            return None, None
+
+        gps_info = {GPSTAGS.get(tag, tag): value for tag, value in gps_ifd.items()}
 
         if "GPSLatitude" in gps_info and "GPSLongitude" in gps_info:
             def convert_to_degrees(value):
@@ -91,12 +93,17 @@ def get_gps_location(image_content):
                 return d + (m / 60.0) + (s / 3600.0)
 
             lat = convert_to_degrees(gps_info["GPSLatitude"])
-            if gps_info.get("GPSLatitudeRef") == "S": lat = -lat
-            
+            if gps_info.get("GPSLatitudeRef") == "S":
+                lat = -lat
+
             lon = convert_to_degrees(gps_info["GPSLongitude"])
-            if gps_info.get("GPSLongitudeRef") == "W": lon = -lon
-            
+            if gps_info.get("GPSLongitudeRef") == "W":
+                lon = -lon
+
+            print(f"位置情報取得成功: lat={lat:.6f}, lon={lon:.6f}")
             return lat, lon
+
+        print("位置情報: GPSLatitude/Longitudeが見つかりません")
     except Exception as e:
         print(f"位置情報解析エラー: {e}")
     return None, None
