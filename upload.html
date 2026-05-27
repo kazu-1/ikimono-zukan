@@ -263,13 +263,14 @@
                 speciesInput.classList.add('animate-pulse', 'bg-teal-50');
                 const originalLabel = fileLabelText.innerText;
                 fileLabelText.innerText = "🔍 AI解析中...";
+                submitBtn.disabled = true;
 
                 try {
                     const response = await fetch('/suggest_category', {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     if (response.ok) {
                         const data = await response.json();
                         if (data.suggestion) categorySelect.value = data.suggestion;
@@ -285,6 +286,7 @@
                     categorySelect.classList.remove('animate-pulse', 'border-teal-400');
                     speciesInput.classList.remove('animate-pulse', 'bg-teal-50');
                     fileLabelText.innerText = originalLabel;
+                    submitBtn.disabled = false;
                 }
             }
         });
