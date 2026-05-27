@@ -15,5 +15,8 @@ env/
 .DS_Store
 Thumbs.db
 
+# サーバーログ
+*.log
+
 # Google Cloud Service Account Key
 key/*.json

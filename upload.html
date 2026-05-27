@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新規投稿 | 生き物図鑑</title>
+    <title>新規投稿 | 石巻の生き物図鑑</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -71,6 +71,7 @@
                                     <input type="file" id="files" name="files" accept="image/*" multiple required class="sr-only">
                                 </label>
                                 <p id="file-count-msg" class="text-[10px] text-gray-400 mt-2 italic">※ 5枚以内の画像を選択してください</p>
+                                <p class="text-[9px] text-gray-300 mt-1">※ AI判定は1枚目の画像を使用します</p>
                             </div>
                         </div>
 
@@ -131,6 +132,7 @@
                                 <option value="植物">植物</option>
                                 <option value="キノコ">キノコ</option>
                                 <option value="虫">虫</option>
+                                <option value="爬虫類・両生類">爬虫類・両生類</option>
                                 <option value="その他" selected>その他</option>
                             </select>
                             <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-[10px]">▼</div>
@@ -307,7 +309,7 @@
 
                 if (response.status === 400 && result.status === 'need_location') {
                     alert(result.message);
-                    document.getElementById('location_name').focus();
+                    document.getElementById('location').focus();
                     resetUI();
                 } else if (response.ok) {
                     // ✅ alert("投稿が完了しました！") を showToast に変更

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全体マップ | 生き物図鑑</title>
+    <title>全体マップ | 石巻の生き物図鑑</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -33,7 +33,7 @@
 </head>
 <body class="bg-gray-50">
     <header class="bg-teal-600 text-white shadow-md p-4 flex justify-between items-center">
-        <h1 class="text-xl font-bold cursor-pointer" onclick="location.href='/'">生き物図鑑</h1>
+        <h1 class="text-xl font-bold cursor-pointer" onclick="location.href='/'">石巻の生き物図鑑</h1>
         <div class="space-x-4">
             <a href="/" class="text-sm bg-teal-700 px-3 py-2 rounded-lg hover:bg-teal-800 transition">リスト表示</a>
             <a href="/upload" class="text-sm bg-orange-500 px-3 py-2 rounded-lg hover:bg-orange-600 transition">投稿する</a>
@@ -57,8 +57,9 @@
             "鳥":     { color: "#06B6D4", icon: "🐦" }, // 水色
             "植物":   { color: "#10B981", icon: "🌿" }, // 緑
             "キノコ": { color: "#92400E", icon: "🍄" }, // 茶色
-            "虫":     { color: "#F59E0B", icon: "🦋" }, // オレンジ
-            "その他": { color: "#6B7280", icon: "📍" }  // グレー
+            "虫":          { color: "#F59E0B", icon: "🦋" }, // オレンジ
+            "爬虫類・両生類": { color: "#84CC16", icon: "🐸" }, // ライムグリーン
+            "その他":      { color: "#6B7280", icon: "📍" }  // グレー
         };
 
         const items = {{ items | tojson | safe }};

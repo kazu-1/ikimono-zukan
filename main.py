@@ -3,6 +3,8 @@ import io
 import os
 import json
 from typing import List, Optional
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, File, Form, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -11,26 +13,17 @@ from supabase import Client, create_client
 from PIL import Image, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from geopy.geocoders import Nominatim
-from google.cloud import vision
+from google import genai
+from google.genai import types
 
-# Google Vision APIの読み込み
-POSSIBLE_KEY_PATHS = [
-    os.path.join(os.getcwd(), "key", "google-vision-key.json"), # ローカル用
-    "/etc/secrets/google-vision-key.json",                     # Render用
-    "google-vision-key.json"                                   # 直下にある場合用
-]
-
-found_key = False
-for path in POSSIBLE_KEY_PATHS:
-    if os.path.exists(path):
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = path
-        vision_client = vision.ImageAnnotatorClient()
-        print(f"✅ Google Vision API credentials set from: {path}")
-        found_key = True
-        break
-
-if not found_key:
-    print("⚠️ Google Vision APIのキーファイルが見つかりません。")
+# Gemini APIの初期化
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if GEMINI_API_KEY:
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+    print("✅ Gemini API client initialized.")
+else:
+    gemini_client = None
+    print("⚠️ GEMINI_API_KEYが設定されていません。")
 
 app = FastAPI()
 templates = Jinja2Templates(directory=".")
@@ -41,10 +34,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-    # ローカル実行時のためのフォールバック（必要に応じて書き換え）
-    print("⚠️ 環境変数が未設定です。ローカル設定を試みます。")
-    SUPABASE_URL = "https://snogytqcoylmyownkwgu.supabase.co"
-    SUPABASE_KEY = "sb_publishable_LjGjTfA4oAIdGfLVO8AF3Q_jNPNj6rI"
+    raise RuntimeError("環境変数 SUPABASE_URL と SUPABASE_KEY を設定してください。")
 
 try:
     # 前後の空白を削除して接続
@@ -116,67 +106,66 @@ async def get_suggestion(file: UploadFile = File(...)):
     try:
         content = await file.read()
 
-        # 画像が空でないか確認
         if not content:
             return JSONResponse(status_code=400, content={"error": "Empty file"})
 
-        image = vision.Image(content=content)
+        if not gemini_client:
+            return JSONResponse(status_code=500, content={"error": "Gemini APIキーが設定されていません"})
 
-        # 特徴量としてラベル検出を指定
-        response = vision_client.label_detection(image=image)
-        # 信頼度（score）が高い順に並んだラベルを取得
-        labels = response.label_annotations        
-        
-        if response.error.message:
-            print(f"Vision API Error: {response.error.message}")
-            return JSONResponse(status_code=500, content={"error": response.error.message})
+        # MIMEタイプを判定
+        mime_type = file.content_type or "image/jpeg"
 
-        labels = response.label_annotations
-        keywords = [label.description.lower() for label in labels]
-        print(f"Keywords: {keywords}")
+        # カテゴリ一覧
+        categories = ["さかな", "貝類", "甲殻類", "海藻", "鳥", "植物", "キノコ", "虫", "爬虫類・両生類", "その他"]
 
-        # アプリのカテゴリ名とVision APIのキーワードのマッピング
-        mapping = {
-            "さかな": ["fish", "marine biology", "aquarium", "fin", "underwater"],
-            "貝類": ["shell", "mollusc", "seashell", "clam", "snail"],
-            "甲殻類": ["crustacean", "crab", "shrimp", "lobster"],
-            "海藻": ["seaweed", "algae", "kelp", "green algae", "marine plants", "aquatic plant"],            
-            "鳥": ["bird", "feather", "beak", "wing"],
-            "植物": ["plant", "flower", "leaf", "tree", "flora", "grass", "botany"],
-            "キノコ": ["fungi", "fungus", "mushroom", "edible mushroom", "agaric", "boleto"],
-            "虫": ["insect", "arthropod", "butterfly", "beetle", "bug", "ant", "moth", "dragonfly"]
-            # "哺乳類": ["mammal", "animal", "wildlife", "cat", "dog", "deer", "squirrel"],
-            # "爬虫類・両生類": ["reptile", "amphibian", "frog", "snake", "lizard", "turtle"],
-        }
+        prompt = f"""この画像に写っている生き物を分析してください。
 
-        # --- 信頼度を考慮した判定ロジック ---
-        suggested = "その他"
-        best_score = 0.0
+以下のカテゴリから最も適切なものを1つ選んでください:
+{", ".join(categories)}
 
-        for label in labels:
-            description = label.description.lower()
-            score = label.score # これがコンフィデンス（確信度）
-            
-            # 各ラベルがどのカテゴリに属するかチェック
-            for category, tags in mapping.items():
-                if description in tags:
-                    # 最初に見つかった（＝最も確信度が高い）カテゴリを採用
-                    print(f"✅ AI判定採用: {category} (ラベル: '{description}', 確信度: {score:.2%})")
-                    return JSONResponse(content={"suggestion": category})
+回答は以下のJSON形式のみで返してください（他の文章は不要）:
+{{
+  "category": "カテゴリ名",
+  "species": "生き物の和名（わかれば。不明な場合はnull）"
+}}"""
 
-        # 何も当てはまらなかった場合
-        return JSONResponse(content={"suggestion": "その他"})
-        
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                types.Part.from_bytes(data=content, mime_type=mime_type),
+                prompt,
+            ],
+        )
+
+        raw_text = response.text.strip()
+        print(f"Gemini response: {raw_text}")
+
+        # JSON部分を抽出
+        import re
+        json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            suggestion = result.get("category", "その他")
+            species = result.get("species")
+            if not species or species == "null":
+                species = None
+        else:
+            suggestion = "その他"
+            species = None
+
+        print(f"✅ Gemini判定: カテゴリ={suggestion}, 種名={species}")
+        return JSONResponse(content={"suggestion": suggestion, "species": species})
+
     except Exception as e:
-            import traceback
-            print("--- Detailed Error Traceback ---")
-            traceback.print_exc() # これでエラーの正確な場所がわかります
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        import traceback
+        print("--- Detailed Error Traceback ---")
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # --- ログイン画面を表示する ---
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(request, "login.html")
 
 # --- 認証処理をする ---
 @app.post("/auth")
@@ -201,8 +190,7 @@ async def auth(
             })
             
             # 登録成功時は、ログイン画面に戻して成功メッセージを表示
-            return templates.TemplateResponse("login.html", {
-                "request": request,
+            return templates.TemplateResponse(request, "login.html", {
                 "success": "アカウントを作成しました！さっそくログインしてみよう。"
             })
             
@@ -227,8 +215,7 @@ async def auth(
         else:
             friendly_msg = f"エラー: {error_msg}"
         
-        return templates.TemplateResponse("login.html", {
-            "request": request, 
+        return templates.TemplateResponse(request, "login.html", {
             "error": friendly_msg
         })
 
@@ -277,7 +264,7 @@ async def index_page(request: Request):
         print(f"データ取得エラー: {e}")
         items = []
     # index.html (投稿用フォームがあるページ) を表示
-    return templates.TemplateResponse("index.html", {"request": request, "items": items})
+    return templates.TemplateResponse(request, "index.html", {"items": items})
 
 # 【2】 アップロード用ページを表示
 @app.get("/upload", response_class=HTMLResponse)
@@ -285,7 +272,7 @@ async def upload_page(request: Request):
     user = get_user_from_cookie(request)
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("upload.html", {"request": request})
+    return templates.TemplateResponse(request, "upload.html")
 
 # 【3】 新規投稿（リサイズ・位置情報対応）
 @app.post("/do_upload")
@@ -319,6 +306,8 @@ async def do_upload(
         if len(files) > 5:
             return JSONResponse(status_code=400, content={"error": "写真は最大5枚までです"})
 
+        # --- Step1: 全画像を読み込み・処理（まだStorageには保存しない）---
+        processed_images = []
         for i, file in enumerate(files):
             raw_content = await file.read()
             if not raw_content: continue
@@ -329,26 +318,27 @@ async def do_upload(
                 if lat and lon:
                     final_address = get_address_from_coords(lat, lon)
 
-            # --- 修正: process_image関数を使用 ---
             optimized_content = process_image(raw_content)
+            processed_images.append(optimized_content)
 
-            # Storageへ保存
-            ts = datetime.datetime.now().timestamp()
-            file_path = f"observations/{ts}_{i}.jpg" 
-            
-            supabase.storage.from_("photos").upload(
-                path=file_path, 
-                file=optimized_content, 
-                file_options={"content-type": "image/jpeg"}
-            )
-            public_url = supabase.storage.from_("photos").get_public_url(file_path)
-            image_urls.append(public_url)
-
+        # --- Step2: 場所チェック（Storageに保存する前に確認）---
         if not final_address:
             if location_name and location_name.strip():
                 final_address = location_name
             else:
                 return JSONResponse(status_code=400, content={"status": "need_location", "message": "場所情報を入力してください。"})
+
+        # --- Step3: 場所OKなのでStorageへ保存 ---
+        for i, optimized_content in enumerate(processed_images):
+            ts = datetime.datetime.now().timestamp()
+            file_path = f"observations/{ts}_{i}.jpg"
+            supabase.storage.from_("photos").upload(
+                path=file_path,
+                file=optimized_content,
+                file_options={"content-type": "image/jpeg"}
+            )
+            public_url = supabase.storage.from_("photos").get_public_url(file_path)
+            image_urls.append(public_url)
 
         # DB登録
         insert_data = {
@@ -467,7 +457,7 @@ async def map_page(request: Request):
     except Exception as e:
         print(f"地図データ取得エラー: {e}")
         items = []
-    return templates.TemplateResponse("map_view.html", {"request": request, "items": items})
+    return templates.TemplateResponse(request, "map_view.html", {"items": items})
 
 if __name__ == "__main__":
     import uvicorn
