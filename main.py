@@ -47,8 +47,7 @@ except Exception as e:
 # --- 住所取得関数 ---
 def get_address_from_coords(lat, lon):
     try:
-        geolocator = Nominatim(user_agent="my_creature_app_v1")
-        # addressdetails=True を指定することで、市区町村などの詳細データを取得
+        geolocator = Nominatim(user_agent="ishimaki-ikimono-zukan/1.0", timeout=10)
         location = geolocator.reverse(f"{lat}, {lon}", language='ja', addressdetails=True)
         
         if location and 'address' in location.raw:
@@ -113,18 +112,19 @@ async def get_location(file: UploadFile = File(...)):
     try:
         content = await file.read()
         if not content:
-            return JSONResponse(content={"address": None})
+            return JSONResponse(content={"address": None, "has_gps": False})
 
         lat, lon = get_gps_location(content)
         if lat is None or lon is None:
-            return JSONResponse(content={"address": None})
+            return JSONResponse(content={"address": None, "has_gps": False})
 
+        # GPS座標はあるが住所変換できなかった場合も has_gps=True
         address = get_address_from_coords(lat, lon)
-        return JSONResponse(content={"address": address, "lat": lat, "lon": lon})
+        return JSONResponse(content={"address": address, "lat": lat, "lon": lon, "has_gps": True})
 
     except Exception as e:
         print(f"位置情報エンドポイントエラー: {e}")
-        return JSONResponse(content={"address": None})
+        return JSONResponse(content={"address": None, "has_gps": False})
 
 
 @app.post("/suggest_category")

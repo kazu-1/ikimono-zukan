@@ -291,9 +291,16 @@
                     if (locRes.ok) {
                         const locData = await locRes.json();
                         if (locData.address) {
+                            // 住所取得成功
                             locationInput.value = locData.address;
                             locationInput.classList.add('ring-2', 'ring-teal-500');
                             setTimeout(() => locationInput.classList.remove('ring-2', 'ring-teal-500'), 2000);
+                        } else if (locData.has_gps) {
+                            // GPS座標はあるが住所変換失敗
+                            locationInput.placeholder = '住所の取得に失敗しました（手動で入力してください）';
+                        } else {
+                            // GPS情報なし
+                            locationInput.placeholder = 'GPS情報なし（手動で入力してください）';
                         }
                     }
                 } catch (err) {
@@ -302,7 +309,7 @@
                     categorySelect.classList.remove('animate-pulse', 'border-teal-400');
                     speciesInput.classList.remove('animate-pulse', 'bg-teal-50');
                     locationInput.classList.remove('animate-pulse', 'bg-teal-50');
-                    locationInput.placeholder = '自動取得...';
+                    // placeholder は位置情報の結果によって各分岐で設定済みのためここではリセットしない
                     fileLabelText.innerText = originalLabel;
                     submitBtn.disabled = false;
                 }
