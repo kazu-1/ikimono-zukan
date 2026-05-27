@@ -108,6 +108,25 @@ def get_gps_location(image_content):
         print(f"位置情報解析エラー: {e}")
     return None, None
 
+@app.post("/get_location")
+async def get_location(file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        if not content:
+            return JSONResponse(content={"address": None})
+
+        lat, lon = get_gps_location(content)
+        if lat is None or lon is None:
+            return JSONResponse(content={"address": None})
+
+        address = get_address_from_coords(lat, lon)
+        return JSONResponse(content={"address": address, "lat": lat, "lon": lon})
+
+    except Exception as e:
+        print(f"位置情報エンドポイントエラー: {e}")
+        return JSONResponse(content={"address": None})
+
+
 @app.post("/suggest_category")
 async def get_suggestion(file: UploadFile = File(...)):
     try:
