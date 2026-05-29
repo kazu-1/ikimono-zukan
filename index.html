@@ -241,7 +241,12 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">場所</label>
-                            <input type="text" name="location_name" id="m_location" class="w-full border rounded-md p-2 focus:ring-2 focus:ring-teal-500 outline-none">
+                            <div class="h-[42px] px-4 bg-gray-50 border-2 border-gray-100 rounded-xl text-sm flex items-center text-gray-500">
+                                <span id="m_location_text" class="truncate">位置情報なし</span>
+                            </div>
+                            <input type="hidden" id="m_location" name="location_name">
+                            <input type="hidden" id="m_manual_lat" name="manual_lat">
+                            <input type="hidden" id="m_manual_lon" name="manual_lon">
                         </div>
                         
                         <div>
@@ -251,8 +256,9 @@
 
                         <div class="border-t pt-4">
                             <label class="block text-sm font-medium text-gray-700 mb-2">発見場所（地図）</label>
-                            <div id="map" class="w-full h-56 rounded-lg border shadow-inner"></div>
-                            <p id="no-location-msg" class="text-xs text-red-400 mt-2 hidden">📍 位置情報がありません</p>
+                            <div id="map" class="w-full h-56 rounded-lg border shadow-inner cursor-crosshair"></div>
+                            <p class="text-[10px] text-gray-400 mt-1 italic">※ 地図をクリックしてピンの位置を更新できます</p>
+                            <p id="no-location-msg" class="text-xs text-orange-400 mt-2 hidden">📍 位置情報がありません。地図をクリックしてピンを立ててください。</p>
                         </div>
 
                         <div class="flex gap-3 mt-6 border-t pt-6">
@@ -407,7 +413,12 @@
             document.getElementById('m_identified').checked = item.is_identified || false;
             document.getElementById('m_date').value = item.observed_on || '';
             document.getElementById('m_category').value = item.category || 'その他';
-            document.getElementById('m_location').value = item.location_name || '';
+            const locText = document.getElementById('m_location_text');
+            const locHidden = document.getElementById('m_location');
+            locHidden.value = item.location_name || '';
+            locText.textContent = item.location_name || '位置情報なし';
+            document.getElementById('m_manual_lat').value = '';
+            document.getElementById('m_manual_lon').value = '';
             document.getElementById('m_notes').value = item.notes || '';
             
             document.getElementById('editForm').action = "/do_update/" + item.id;
@@ -419,31 +430,64 @@
             const modalBody = document.querySelector('#editModal > div');
             if (modalBody) modalBody.scrollTop = 0;
 
-            if (lat && lon) {
-                if (mapContainer) mapContainer.classList.remove('hidden');
-                if (msg) msg.classList.add('hidden');
-                setTimeout(() => {
-                    if (typeof map === 'undefined' || !map) {
-                        map = L.map('map').setView([lat, lon], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                        marker = L.marker([lat, lon]).addTo(map);
-                    } else {
-                        map.setView([lat, lon], 15);
+            const initCenter = (lat && lon) ? [lat, lon] : [38.434, 141.303];
+            const initZoom = (lat && lon) ? 15 : 13;
+
+            if (mapContainer) mapContainer.classList.remove('hidden');
+            if (msg) {
+                if (lat && lon) msg.classList.add('hidden');
+                else msg.classList.remove('hidden');
+            }
+
+            setTimeout(() => {
+                if (typeof map === 'undefined' || !map) {
+                    map = L.map('map').setView(initCenter, initZoom);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                    if (lat && lon) marker = L.marker([lat, lon]).addTo(map);
+                    map.on('click', onEditMapClick);
+                } else {
+                    map.setView(initCenter, initZoom);
+                    if (lat && lon) {
                         if (typeof marker !== 'undefined' && marker) marker.setLatLng([lat, lon]);
                         else marker = L.marker([lat, lon]).addTo(map);
-                        map.invalidateSize();
+                    } else {
+                        if (typeof marker !== 'undefined' && marker) { marker.remove(); marker = null; }
                     }
-                }, 300);
-            } else {
-                if (mapContainer) mapContainer.classList.add('hidden');
-                if (msg) msg.classList.remove('hidden');
-            }
+                    map.invalidateSize();
+                }
+            }, 300);
 
             document.getElementById('editModal').classList.remove('hidden');
         }
 
         function closeModal() {
             document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function onEditMapClick(e) {
+            const { lat, lng } = e.latlng;
+            if (typeof marker !== 'undefined' && marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng]).addTo(map);
+            }
+            document.getElementById('m_manual_lat').value = lat;
+            document.getElementById('m_manual_lon').value = lng;
+            document.getElementById('no-location-msg').classList.add('hidden');
+
+            const locText = document.getElementById('m_location_text');
+            locText.textContent = '取得中...';
+            try {
+                const res = await fetch(`/reverse_geocode?lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                const addr = data.address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                locText.textContent = addr;
+                document.getElementById('m_location').value = addr;
+            } catch {
+                const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                locText.textContent = fallback;
+                document.getElementById('m_location').value = fallback;
+            }
         }
 
         window.onclick = function(event) {

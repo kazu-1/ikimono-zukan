@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>新規投稿 | 石巻の生き物図鑑</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body {
             background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1920&q=80');
@@ -71,7 +73,7 @@
                                     <input type="file" id="files" name="files" accept="image/*" multiple required class="sr-only">
                                 </label>
                                 <p id="file-count-msg" class="text-[10px] text-gray-400 mt-2 italic">※ 5枚以内の画像を選択してください</p>
-                                <p class="text-[9px] text-gray-300 mt-1">※ AI判定は1枚目の画像を使用します</p>
+                                <p class="text-[10px] text-gray-400 mt-1 italic">※ AI判定は1枚目の画像を使用します</p>
                             </div>
                         </div>
 
@@ -82,61 +84,41 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div class="flex flex-col">
-                        <div class="flex items-center gap-1 mb-1.5 ml-1">
-                            <label class="text-xs font-extrabold text-teal-800">📍 撮影場所</label>
-                            
-                            <div class="group relative flex items-center">
-                                <div class="cursor-help">
-                                    <svg class="w-3.5 h-3.5 text-teal-500 hover:text-teal-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                    </svg>
-                                </div>
-                                
-                                <div class="invisible group-hover:visible absolute left-6 -top-4 w-72 p-4 bg-gray-900 text-white text-[11px] leading-relaxed rounded-2xl shadow-2xl z-50 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none border border-gray-700">
-                                    <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-700">
-                                        <span class="text-lg">✨</span>
-                                        <p class="font-bold text-teal-300 text-xs">位置情報があれば場所を自動入力！</p>
-                                    </div>
-                                    <p class="mb-3 text-gray-300">撮影した写真にGPS情報が含まれている場合、保存時に自動で埋まります。</p>
-                                    <div class="space-y-4 text-left">
-                                        <div class="bg-gray-800/50 p-2 rounded-lg">
-                                            <p class="font-bold text-blue-400 mb-1 flex items-center gap-1">iPhone設定</p>
-                                            <p>設定 > プライバシー > 位置情報サービス > カメラを「使用中のみ」にし、「正確な位置情報」をON。</p>
-                                        </div>
-                                        <div class="bg-gray-800/50 p-2 rounded-lg">
-                                            <p class="font-bold text-green-400 mb-1 flex items-center gap-1">Android設定</p>
-                                            <p>カメラアプリ起動 > 設定 > 「位置情報を保存」をON。</p>
-                                        </div>
-                                    </div>
-                                    <div class="absolute -left-1 top-5 w-2 h-2 bg-gray-900 transform rotate-45"></div>
-                                </div>
-                            </div>
+                <!-- 撮影場所（独立行・full width） -->
+                <div class="mb-4">
+                    <label class="text-xs font-extrabold text-teal-800 mb-1.5 ml-1 block">📍 撮影場所</label>
+                    <div class="flex gap-2 items-center">
+                        <div class="flex-1 h-[46px] px-4 bg-gray-50 border-2 border-gray-100 rounded-xl text-sm flex items-center text-gray-500" id="location-display">
+                            <span id="location-text" class="truncate">写真から自動取得 または 地図で選んでください</span>
                         </div>
-
-                        <input type="text" name="location_name" id="location" placeholder="自動取得..." 
-                            class="w-full h-[46px] px-4 bg-gray-50 border-2 border-gray-100 rounded-xl text-sm focus:bg-white focus:border-teal-500 outline-none transition-all placeholder:text-gray-400">
+                        <button type="button" onclick="openMapModal()"
+                            class="h-[46px] px-4 bg-teal-50 border-2 border-teal-100 rounded-xl text-teal-700 text-xs font-bold hover:bg-teal-100 transition whitespace-nowrap flex-shrink-0">
+                            🗺️ 地図で選ぶ
+                        </button>
                     </div>
+                    <input type="hidden" id="location" name="location_name">
+                    <input type="hidden" id="manual_lat" name="manual_lat">
+                    <input type="hidden" id="manual_lon" name="manual_lon">
+                </div>
 
-                    <div class="flex flex-col">
-                        <label class="text-xs font-extrabold text-teal-800 mb-1.5 ml-1">🏷️ 分類</label>
-                        <div class="relative">
-                            <select id="category" name="category" 
-                                class="w-full h-[46px] appearance-none bg-gray-50 border-2 border-gray-100 rounded-xl px-4 text-sm focus:bg-white focus:border-teal-500 outline-none transition-all cursor-pointer">
-                                <option value="さかな">さかな</option>
-                                <option value="貝類">貝類</option>
-                                <option value="甲殻類">甲殻類</option>
-                                <option value="海藻">海藻</option>
-                                <option value="鳥">鳥</option>
-                                <option value="植物">植物</option>
-                                <option value="キノコ">キノコ</option>
-                                <option value="虫">虫</option>
-                                <option value="爬虫類・両生類">爬虫類・両生類</option>
-                                <option value="その他" selected>その他</option>
-                            </select>
-                            <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-[10px]">▼</div>
-                        </div>
+                <!-- 分類（独立行） -->
+                <div class="mb-4">
+                    <label class="text-xs font-extrabold text-teal-800 mb-1.5 ml-1 block">🏷️ 分類</label>
+                    <div class="relative">
+                        <select id="category" name="category"
+                            class="w-full h-[46px] appearance-none bg-gray-50 border-2 border-gray-100 rounded-xl px-4 text-sm focus:bg-white focus:border-teal-500 outline-none transition-all cursor-pointer">
+                            <option value="さかな">さかな</option>
+                            <option value="貝類">貝類</option>
+                            <option value="甲殻類">甲殻類</option>
+                            <option value="海藻">海藻</option>
+                            <option value="鳥">鳥</option>
+                            <option value="植物">植物</option>
+                            <option value="キノコ">キノコ</option>
+                            <option value="虫">虫</option>
+                            <option value="爬虫類・両生類">爬虫類・両生類</option>
+                            <option value="その他" selected>その他</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400 text-[10px]">▼</div>
                     </div>
                 </div>
 
@@ -183,6 +165,31 @@
         </div>
     </div>
 
+    <!-- 地図モーダル -->
+    <div id="map-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3 border-b">
+                <h2 class="font-bold text-gray-800">📍 場所を地図で選ぶ</h2>
+                <button type="button" onclick="closeMapModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">✕</button>
+            </div>
+            <div id="leaflet-map" style="height: 360px;"></div>
+            <div class="px-5 py-3 bg-gray-50 border-t">
+                <p class="text-xs text-gray-500 mb-1">地図をタップしてピンを立ててください</p>
+                <p id="map-address-preview" class="text-sm font-bold text-teal-700 min-h-[20px]"></p>
+            </div>
+            <div class="flex gap-3 px-5 py-3 border-t">
+                <button type="button" onclick="closeMapModal()"
+                    class="flex-1 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-bold hover:bg-gray-200 transition">
+                    キャンセル
+                </button>
+                <button type="button" id="map-confirm-btn" onclick="confirmMapLocation()" disabled
+                    class="flex-[2] py-2 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-700 transition disabled:bg-gray-300">
+                    この場所に決定
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const form = document.getElementById('uploadForm');
         const fileInput = document.getElementById('files');
@@ -196,6 +203,21 @@
         const uploadIcon = document.getElementById('upload-icon');
         const fileLabelText = document.getElementById('file-label-text');
         const locationInput = document.getElementById('location');
+        const locationText = document.getElementById('location-text');
+        const locationDisplay = document.getElementById('location-display');
+
+        function setLocationDisplay(address, source) {
+            locationInput.value = address || '';
+            if (address) {
+                locationText.textContent = (source === 'gps' ? '📷 ' : '🗺️ ') + address;
+                locationDisplay.classList.remove('text-gray-400');
+                locationDisplay.classList.add('text-gray-800');
+            } else {
+                locationText.textContent = '写真から自動取得 または 地図で選んでください';
+                locationDisplay.classList.remove('text-gray-800');
+                locationDisplay.classList.add('text-gray-400');
+            }
+        }
 
         document.getElementById('observed_on').valueAsDate = new Date();
 
@@ -264,8 +286,8 @@
 
                 categorySelect.classList.add('animate-pulse', 'border-teal-400');
                 speciesInput.classList.add('animate-pulse', 'bg-teal-50');
-                locationInput.classList.add('animate-pulse', 'bg-teal-50');
-                locationInput.placeholder = '📍 取得中...';
+                locationDisplay.classList.add('animate-pulse', 'bg-teal-50');
+                locationText.textContent = '📍 取得中...';
                 const originalLabel = fileLabelText.innerText;
                 fileLabelText.innerText = "🔍 AI解析中...";
                 submitBtn.disabled = true;
@@ -291,16 +313,11 @@
                     if (locRes.ok) {
                         const locData = await locRes.json();
                         if (locData.address) {
-                            // 住所取得成功
-                            locationInput.value = locData.address;
-                            locationInput.classList.add('ring-2', 'ring-teal-500');
-                            setTimeout(() => locationInput.classList.remove('ring-2', 'ring-teal-500'), 2000);
-                        } else if (locData.has_gps) {
-                            // GPS座標はあるが住所変換失敗
-                            locationInput.placeholder = '住所の取得に失敗しました（手動で入力してください）';
+                            setLocationDisplay(locData.address, 'gps');
+                            locationDisplay.classList.add('ring-2', 'ring-teal-500');
+                            setTimeout(() => locationDisplay.classList.remove('ring-2', 'ring-teal-500'), 2000);
                         } else {
-                            // GPS情報なし
-                            locationInput.placeholder = 'GPS情報なし（手動で入力してください）';
+                            setLocationDisplay(null);
                         }
                     }
                 } catch (err) {
@@ -308,8 +325,7 @@
                 } finally {
                     categorySelect.classList.remove('animate-pulse', 'border-teal-400');
                     speciesInput.classList.remove('animate-pulse', 'bg-teal-50');
-                    locationInput.classList.remove('animate-pulse', 'bg-teal-50');
-                    // placeholder は位置情報の結果によって各分岐で設定済みのためここではリセットしない
+                    locationDisplay.classList.remove('animate-pulse', 'bg-teal-50');
                     fileLabelText.innerText = originalLabel;
                     submitBtn.disabled = false;
                 }
@@ -355,6 +371,63 @@
             submitBtn.innerText = "投稿を公開する";
             uploadIcon.classList.remove('hidden');
             loadingSpinner.classList.add('hidden');
+        }
+
+        // === 地図モーダル ===
+        let leafletMap = null;
+        let mapMarker = null;
+        let pendingLat = null;
+        let pendingLon = null;
+
+        function openMapModal() {
+            document.getElementById('map-modal').classList.remove('hidden');
+            // 初回のみ地図を初期化（石巻市中心）
+            if (!leafletMap) {
+                leafletMap = L.map('leaflet-map').setView([38.4149, 141.3028], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(leafletMap);
+
+                leafletMap.on('click', async function(e) {
+                    pendingLat = e.latlng.lat;
+                    pendingLon = e.latlng.lng;
+
+                    // ピンを更新
+                    if (mapMarker) mapMarker.remove();
+                    mapMarker = L.marker([pendingLat, pendingLon]).addTo(leafletMap);
+
+                    // 住所を取得して表示
+                    const preview = document.getElementById('map-address-preview');
+                    preview.textContent = '📍 住所を取得中...';
+                    document.getElementById('map-confirm-btn').disabled = true;
+
+                    try {
+                        const res = await fetch(`/reverse_geocode?lat=${pendingLat}&lon=${pendingLon}`);
+                        const data = await res.json();
+                        preview.textContent = data.address || `${pendingLat.toFixed(5)}, ${pendingLon.toFixed(5)}`;
+                    } catch {
+                        preview.textContent = `${pendingLat.toFixed(5)}, ${pendingLon.toFixed(5)}`;
+                    }
+                    document.getElementById('map-confirm-btn').disabled = false;
+                });
+            }
+            // 地図サイズを再計算（モーダル表示後に必要）
+            setTimeout(() => leafletMap.invalidateSize(), 150);
+        }
+
+        function closeMapModal() {
+            document.getElementById('map-modal').classList.add('hidden');
+        }
+
+        function confirmMapLocation() {
+            if (pendingLat === null || pendingLon === null) return;
+            const address = document.getElementById('map-address-preview').textContent;
+            setLocationDisplay(address, 'map');
+            document.getElementById('manual_lat').value = pendingLat;
+            document.getElementById('manual_lon').value = pendingLon;
+            locationDisplay.classList.add('ring-2', 'ring-teal-500');
+            setTimeout(() => locationDisplay.classList.remove('ring-2', 'ring-teal-500'), 2000);
+            closeMapModal();
         }
     </script>
 </body>

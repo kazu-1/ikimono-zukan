@@ -52,13 +52,27 @@ def get_address_from_coords(lat, lon):
         
         if location and 'address' in location.raw:
             addr = location.raw['address']
-            prefecture = addr.get('province') or addr.get('state') or ""  # 三重県
-            city = addr.get('city') or addr.get('town') or addr.get('village') or addr.get('city_district') or "" # 松阪市
-            suburb = addr.get('suburb') or "" # 飯高町
-            neighbourhood = addr.get('neighbourhood') or "" # 赤桶
-            
-            full_addr = f"{prefecture}{city}{suburb}{neighbourhood}"
-            
+            print(f"Nominatim address fields: {addr}")
+
+            prefecture = addr.get('province') or addr.get('state') or ""
+            city       = (addr.get('city') or addr.get('town') or
+                          addr.get('village') or addr.get('city_district') or "")
+            # 市区町村以下の地区名（複数フィールドを優先順位で結合）
+            area_parts = [
+                addr.get('suburb') or "",
+                addr.get('quarter') or "",
+                addr.get('neighbourhood') or "",
+                addr.get('hamlet') or "",
+            ]
+            # 重複を除いて結合
+            seen = set()
+            area = ""
+            for part in area_parts:
+                if part and part not in seen and part != city:
+                    area += part
+                    seen.add(part)
+
+            full_addr = f"{prefecture}{city}{area}"
             return full_addr if full_addr else location.address
             
         return None
@@ -125,6 +139,16 @@ async def get_location(file: UploadFile = File(...)):
     except Exception as e:
         print(f"位置情報エンドポイントエラー: {e}")
         return JSONResponse(content={"address": None, "has_gps": False})
+
+
+@app.get("/reverse_geocode")
+async def reverse_geocode(lat: float, lon: float):
+    try:
+        address = get_address_from_coords(lat, lon)
+        return JSONResponse(content={"address": address})
+    except Exception as e:
+        print(f"逆ジオコーディングエラー: {e}")
+        return JSONResponse(content={"address": None})
 
 
 @app.post("/suggest_category")
@@ -310,6 +334,8 @@ async def do_upload(
     category: str = Form(...),
     notes: Optional[str] = Form(None),
     location_name: Optional[str] = Form(None),
+    manual_lat: Optional[float] = Form(None),
+    manual_lon: Optional[float] = Form(None),
     files: List[UploadFile] = File(...)
 ):
     token = request.cookies.get("access_token")
@@ -348,6 +374,10 @@ async def do_upload(
             processed_images.append(optimized_content)
 
         # --- Step2: 場所チェック（Storageに保存する前に確認）---
+        # 地図ピンで選択されたlat/lonを優先して使用
+        if lat is None and lon is None and manual_lat and manual_lon:
+            lat, lon = manual_lat, manual_lon
+
         if not final_address:
             if location_name and location_name.strip():
                 final_address = location_name
@@ -399,7 +429,9 @@ async def do_update(
     location_name: str = Form(...),
     category: str = Form(...),
     notes: Optional[str] = Form(None),
-    existing_urls: str = Form("[]"),  # 💡 削除後の既存URLリストを受け取る
+    manual_lat: Optional[float] = Form(None),
+    manual_lon: Optional[float] = Form(None),
+    existing_urls: str = Form("[]"),
     new_files: List[UploadFile] = File(None)
 ):
     # --- 1. ログインチェック ---
@@ -465,6 +497,10 @@ async def do_update(
 
         if observed_on:
             update_data["observed_on"] = observed_on
+
+        if manual_lat is not None and manual_lon is not None:
+            update_data["latitude"] = manual_lat
+            update_data["longitude"] = manual_lon
 
         # Supabaseの更新実行
         supabase.table("observations").update(update_data).eq("id", id).execute()
