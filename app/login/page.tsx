@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"login" | "signup">("login");
+  const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: { preventDefault(): void }, action: "login" | "signup") => {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -23,15 +23,16 @@ export default function LoginPage() {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, action: tab }),
+        body: JSON.stringify({ email, password, username, action }),
       });
       const data = await res.json();
 
       if (!res.ok) {
         setError(data.error || "エラーが発生しました");
-      } else if (tab === "signup") {
+      } else if (action === "signup") {
         setSuccess("アカウントを作成しました！さっそくログインしてみよう。");
-        setTab("login");
+        setIsSignup(false);
+        setUsername("");
       } else {
         router.push("/");
         router.refresh();
@@ -43,87 +44,135 @@ export default function LoginPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🌿</div>
-          <h1 className="text-2xl font-bold text-teal-700">
-            石巻の生き物図鑑へようこそ
-          </h1>
-          <p className="text-gray-500 mt-2 text-sm">
-            ログインして生き物を記録しよう
-          </p>
-        </div>
+  const switchToSignup = () => {
+    setIsSignup(true);
+    setError("");
+    setSuccess("");
+  };
 
-        <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
-          <button
-            onClick={() => setTab("login")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-              tab === "login"
-                ? "bg-white shadow text-teal-700"
-                : "text-gray-500"
-            }`}
-          >
-            ログイン
-          </button>
-          <button
-            onClick={() => setTab("signup")}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition ${
-              tab === "signup"
-                ? "bg-white shadow text-teal-700"
-                : "text-gray-500"
-            }`}
-          >
-            新規登録
-          </button>
-        </div>
+  const switchToLogin = () => {
+    setIsSignup(false);
+    setError("");
+    setSuccess("");
+    setUsername("");
+  };
+
+  return (
+    <div className="flex items-center justify-center min-h-screen relative">
+      {/* body::before の白オーバーレイを上書きする専用背景 */}
+      <div
+        className="fixed inset-0"
+        style={{
+          backgroundImage: "url('/photo/hamaguri.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundAttachment: "fixed",
+          zIndex: 0,
+        }}
+      />
+      {/* 背景画像の上に薄い暗幕 */}
+      <div className="fixed inset-0 bg-black/30" style={{ zIndex: 1 }} />
+
+      <div className="relative bg-white/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md" style={{ zIndex: 2 }}>
+        <h1 className="text-2xl font-bold text-center text-teal-800 mb-6">
+          石巻の生き物図鑑へようこそ
+        </h1>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-600 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-green-100 border-l-4 border-green-500 text-green-700 text-sm rounded">
             {success}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {tab === "signup" && (
+        <form
+          onSubmit={(e) => handleSubmit(e, isSignup ? "signup" : "login")}
+          className="space-y-4"
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              メールアドレス
+            </label>
             <input
-              type="text"
-              placeholder="ニックネーム"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:border-teal-400 outline-none"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              パスワード
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              placeholder="6文字以上で入力してください"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+            />
+          </div>
+
+          {isSignup && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                ユーザー名
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                placeholder="図鑑に表示される名前"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+              />
+            </div>
           )}
-          <input
-            type="email"
-            placeholder="メールアドレス"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:border-teal-400 outline-none"
-            required
-          />
-          <input
-            type="password"
-            placeholder="パスワード"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm focus:border-teal-400 outline-none"
-            required
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-teal-600 text-white py-3 rounded-xl font-bold hover:bg-teal-700 transition disabled:opacity-50"
-          >
-            {loading ? "処理中..." : tab === "login" ? "ログイン" : "登録する"}
-          </button>
+
+          <div className="flex flex-col gap-3 pt-2">
+            {!isSignup ? (
+              <>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-teal-600 text-white py-2 rounded-lg font-bold hover:bg-teal-700 transition disabled:opacity-50"
+                >
+                  {loading ? "処理中..." : "ログイン"}
+                </button>
+                <button
+                  type="button"
+                  onClick={switchToSignup}
+                  className="w-full border-2 border-teal-600 text-teal-600 py-2 rounded-lg font-bold hover:bg-teal-50 transition"
+                >
+                  新規アカウント作成
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition disabled:opacity-50"
+                >
+                  {loading ? "処理中..." : "この内容で登録する"}
+                </button>
+                <button
+                  type="button"
+                  onClick={switchToLogin}
+                  className="w-full text-gray-500 text-sm font-medium hover:underline transition py-2"
+                >
+                  すでにアカウントをお持ちの方（ログイン）
+                </button>
+              </>
+            )}
+          </div>
         </form>
       </div>
     </div>
