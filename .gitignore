@@ -20,3 +20,11 @@ Thumbs.db
 
 # Google Cloud Service Account Key
 key/*.json
+
+# Next.js
+.next/
+node_modules/
+.env.local
+
+# Build output
+out/
