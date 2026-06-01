@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 
 export const metadata: Metadata = {
   title: "石巻の生き物図鑑",
@@ -13,12 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        />
-      </head>
+      <head />
       <body className="text-gray-900 pt-10">{children}</body>
     </html>
   );
