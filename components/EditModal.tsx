@@ -4,7 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Observation, CATEGORIES, CATEGORY_CONFIG } from "@/types";
 
-const MapLeaflet = dynamic(() => import("./MapLeaflet"), { ssr: false });
+const MapLeaflet = dynamic(() => import("./MapLeaflet"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-56 rounded-lg border bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+      地図を読み込み中...
+    </div>
+  ),
+});
 
 interface Props {
   item: Observation;

@@ -12,10 +12,16 @@ export default function FullMap({ items }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
+    if ((container as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
+
+    let cancelled = false;
     let map: ReturnType<typeof import("leaflet")["map"]> | null = null;
 
     import("leaflet").then((L) => {
+      if (cancelled || !container) return;
+      if ((container as HTMLElement & { _leaflet_id?: number })._leaflet_id) return;
       const Lf = L.default;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -77,6 +83,7 @@ export default function FullMap({ items }: Props) {
     });
 
     return () => {
+      cancelled = true;
       map?.remove();
     };
   }, [items]);
