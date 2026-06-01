@@ -47,11 +47,9 @@ export default function MapLeaflet({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (Lf.Icon.Default.prototype as any)._getIconUrl;
       Lf.Icon.Default.mergeOptions({
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        iconRetinaUrl:
-          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        shadowUrl:
-          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+        iconUrl: "/leaflet-images/marker-icon.png",
+        iconRetinaUrl: "/leaflet-images/marker-icon-2x.png",
+        shadowUrl: "/leaflet-images/marker-shadow.png",
       });
 
       const center: [number, number] =

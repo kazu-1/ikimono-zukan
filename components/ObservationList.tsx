@@ -1,9 +1,65 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Observation, CATEGORIES, CATEGORY_CONFIG } from "@/types";
 import EditModal from "./EditModal";
+
+const ObservationCard = memo(function ObservationCard({
+  item,
+  onClick,
+}: {
+  item: Observation;
+  onClick: (item: Observation) => void;
+}) {
+  const catCfg = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG["その他"];
+  const firstImage = item.image_urls?.[0];
+  return (
+    <div
+      onClick={() => onClick(item)}
+      className="observation-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
+    >
+      {firstImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={firstImage}
+          alt={item.species_name || "生き物"}
+          className="w-full h-48 object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="w-full h-48 bg-gray-100 flex items-center justify-center text-4xl">
+          {catCfg.icon}
+        </div>
+      )}
+      <div className="p-4 flex-grow">
+        <div className="flex items-center justify-between mb-2">
+          <span className={`text-xs font-semibold px-2 py-1 rounded-full ${catCfg.bg}`}>
+            {item.category}
+          </span>
+          {item.is_identified ? (
+            <span className="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+              同定済
+            </span>
+          ) : (
+            <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-500 rounded-full">
+              未同定
+            </span>
+          )}
+        </div>
+        <h2 className="font-bold text-lg mb-1">
+          {item.species_name || "名称不明"}
+        </h2>
+        <p className="text-gray-500 text-xs mb-2">
+          📍 {item.location_name || "場所不明"}
+        </p>
+        <p className="text-gray-600 text-sm line-clamp-2">
+          {item.notes || ""}
+        </p>
+      </div>
+    </div>
+  );
+});
 
 interface Props {
   items: Observation[];
@@ -35,25 +91,27 @@ export default function ObservationList({ items }: Props) {
     router.refresh();
   };
 
-  const filtered = items
-    .filter((item) => {
-      const text = searchText.toLowerCase();
-      const matchText =
-        !text ||
-        (item.species_name || "").toLowerCase().includes(text) ||
-        (item.created_by || "").toLowerCase().includes(text) ||
-        (item.location_name || "").toLowerCase().includes(text) ||
-        (item.notes || "").toLowerCase().includes(text);
-      const matchCat = !categoryFilter || item.category === categoryFilter;
-      const idStr = item.is_identified ? "同定済" : "未同定";
-      const matchId = !idFilter || idStr === idFilter;
-      return matchText && matchCat && matchId;
-    })
-    .sort((a, b) => {
-      const diff =
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      return sortAsc ? diff : -diff;
-    });
+  const filtered = useMemo(() => {
+    const text = searchText.toLowerCase();
+    return items
+      .filter((item) => {
+        const matchText =
+          !text ||
+          (item.species_name || "").toLowerCase().includes(text) ||
+          (item.created_by || "").toLowerCase().includes(text) ||
+          (item.location_name || "").toLowerCase().includes(text) ||
+          (item.notes || "").toLowerCase().includes(text);
+        const matchCat = !categoryFilter || item.category === categoryFilter;
+        const idStr = item.is_identified ? "同定済" : "未同定";
+        const matchId = !idFilter || idStr === idFilter;
+        return matchText && matchCat && matchId;
+      })
+      .sort((a, b) => {
+        const diff =
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return sortAsc ? diff : -diff;
+      });
+  }, [items, searchText, categoryFilter, idFilter, sortAsc]);
 
   return (
     <div className="pb-20">
@@ -167,57 +225,13 @@ export default function ObservationList({ items }: Props) {
       {/* Cards */}
       <main className="max-w-5xl mx-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((item) => {
-            const catCfg = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG["その他"];
-            const firstImage = item.image_urls?.[0];
-            return (
-              <div
-                key={item.id}
-                onClick={() => setEditingItem(item)}
-                className="observation-card bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer flex flex-col"
-              >
-                {firstImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={firstImage}
-                    alt={item.species_name || "生き物"}
-                    className="w-full h-48 object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-48 bg-gray-100 flex items-center justify-center text-4xl">
-                    {catCfg.icon}
-                  </div>
-                )}
-                <div className="p-4 flex-grow">
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`text-xs font-semibold px-2 py-1 rounded-full ${catCfg.bg}`}
-                    >
-                      {item.category}
-                    </span>
-                    {item.is_identified ? (
-                      <span className="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                        同定済
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold px-2 py-1 bg-gray-100 text-gray-500 rounded-full">
-                        未同定
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="font-bold text-lg mb-1">
-                    {item.species_name || "名称不明"}
-                  </h2>
-                  <p className="text-gray-500 text-xs mb-2">
-                    📍 {item.location_name || "場所不明"}
-                  </p>
-                  <p className="text-gray-600 text-sm line-clamp-2">
-                    {item.notes || ""}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+          {filtered.map((item) => (
+            <ObservationCard
+              key={item.id}
+              item={item}
+              onClick={setEditingItem}
+            />
+          ))}
         </div>
       </main>
 
