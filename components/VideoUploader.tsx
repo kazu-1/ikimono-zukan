@@ -9,6 +9,7 @@ interface Props {
   speciesName?: string;
   onUploaded: (youtubeUrl: string) => void;
   onCleared: () => void;
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
 export default function VideoUploader({
@@ -16,6 +17,7 @@ export default function VideoUploader({
   speciesName,
   onUploaded,
   onCleared,
+  onUploadingChange,
 }: Props) {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
@@ -32,6 +34,7 @@ export default function VideoUploader({
     setStatus("uploading");
     setProgress(0);
     setErrorMsg("");
+    onUploadingChange?.(true);
 
     const title = speciesName ? `${speciesName}の観察動画` : "生き物の観察動画";
     let youtubeUploadUrl = "";
@@ -64,6 +67,7 @@ export default function VideoUploader({
         if (data.done) {
           setStatus("done");
           setProgress(100);
+          onUploadingChange?.(false);
           onUploaded(data.youtubeUrl ?? "");
           return;
         }
@@ -76,6 +80,7 @@ export default function VideoUploader({
       throw new Error("アップロードが完了しませんでした");
     } catch (err) {
       setStatus("error");
+      onUploadingChange?.(false);
       setErrorMsg(err instanceof Error ? err.message : "アップロードに失敗しました");
     }
   };
