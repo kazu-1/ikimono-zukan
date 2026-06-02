@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,26 +20,31 @@ export default function LoginPage() {
     setError("");
     setSuccess("");
 
-    try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, action }),
-      });
-      const data = await res.json();
+    const supabase = createClient();
 
-      if (!res.ok) {
-        setError(data.error || "エラーが発生しました");
-      } else if (action === "signup") {
+    try {
+      if (action === "signup") {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { display_name: username } },
+        });
+        if (error) throw error;
         setSuccess("アカウントを作成しました！さっそくログインしてみよう。");
         setIsSignup(false);
         setUsername("");
       } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
         router.push("/");
-        router.refresh();
       }
-    } catch {
-      setError("ネットワークエラーが発生しました");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "エラーが発生しました";
+      let friendly = msg;
+      if (msg.includes("6 characters")) friendly = "パスワードは6文字以上で入力してください。";
+      else if (msg.includes("Invalid login credentials")) friendly = "メールアドレスまたはパスワードが正しくありません。";
+      else if (msg.includes("already registered")) friendly = "このメールアドレスは既に登録されています。";
+      setError(friendly);
     } finally {
       setLoading(false);
     }
