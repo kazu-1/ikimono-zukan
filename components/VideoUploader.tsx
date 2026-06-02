@@ -53,17 +53,22 @@ export default function VideoUploader({
           body: formData,
         });
 
-        const data = await res.json();
+        let data: { error?: string; done?: boolean; youtubeUrl?: string; youtubeUploadUrl?: string };
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error(`サーバーエラー (${res.status}) — Vercel環境変数が未設定の可能性があります`);
+        }
         if (!res.ok) throw new Error(data.error || `サーバーエラー (${res.status})`);
 
         if (data.done) {
           setStatus("done");
           setProgress(100);
-          onUploaded(data.youtubeUrl);
+          onUploaded(data.youtubeUrl ?? "");
           return;
         }
 
-        youtubeUploadUrl = data.youtubeUploadUrl;
+        youtubeUploadUrl = data.youtubeUploadUrl ?? "";
         offset += chunkBlob.size;
         setProgress(Math.round((offset / file.size) * 100));
       }
