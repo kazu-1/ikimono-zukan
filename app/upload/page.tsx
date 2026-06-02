@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { CATEGORIES } from "@/types";
+import VideoUploader from "@/components/VideoUploader";
 
 const MapLeaflet = dynamic(() => import("@/components/MapLeaflet"), {
   ssr: false,
@@ -27,6 +28,7 @@ export default function UploadPage() {
   const [manualLat, setManualLat] = useState<number | null>(null);
   const [manualLon, setManualLon] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [pendingLat, setPendingLat] = useState<number | null>(null);
@@ -175,6 +177,7 @@ export default function UploadPage() {
     formData.append("category", category);
     formData.append("notes", notes);
     formData.append("location_name", locationName);
+    if (youtubeUrl) formData.append("youtube_url", youtubeUrl);
     if (manualLat !== null) formData.append("manual_lat", manualLat.toString());
     if (manualLon !== null) formData.append("manual_lon", manualLon.toString());
 
@@ -422,6 +425,18 @@ export default function UploadPage() {
                   className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-teal-500 outline-none"
                 />
               </div>
+            </div>
+
+            {/* Video upload */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">
+                🎬 動画（任意）
+              </label>
+              <VideoUploader
+                speciesName={speciesName}
+                onUploaded={(url) => setYoutubeUrl(url)}
+                onCleared={() => setYoutubeUrl("")}
+              />
             </div>
 
             {/* Buttons */}

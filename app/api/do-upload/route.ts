@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     manualLatStr && manualLatStr !== "" ? parseFloat(manualLatStr) : null;
   const manualLon =
     manualLonStr && manualLonStr !== "" ? parseFloat(manualLonStr) : null;
+  const youtubeUrl = (formData.get("youtube_url") as string) || null;
   const files = formData.getAll("files") as File[];
 
   const validFiles = files.filter((f) => f.size > 0);
@@ -134,6 +135,7 @@ export async function POST(request: Request) {
     category,
     notes,
     image_urls: imageUrls,
+    youtube_url: youtubeUrl || null,
     latitude: lat,
     longitude: lon,
   });

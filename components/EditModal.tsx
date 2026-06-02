@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Observation, CATEGORIES, CATEGORY_CONFIG } from "@/types";
+import VideoUploader from "./VideoUploader";
 
 const MapLeaflet = dynamic(() => import("./MapLeaflet"), {
   ssr: false,
@@ -26,6 +27,7 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
   const [category, setCategory] = useState(item.category || "その他");
   const [locationName, setLocationName] = useState(item.location_name || "");
   const [notes, setNotes] = useState(item.notes || "");
+  const [youtubeUrl, setYoutubeUrl] = useState(item.youtube_url || "");
   const [imageUrls, setImageUrls] = useState<string[]>(item.image_urls || []);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newFilePreviews, setNewFilePreviews] = useState<string[]>([]);
@@ -92,6 +94,7 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
     if (manualLat !== null) formData.append("manual_lat", manualLat.toString());
     if (manualLon !== null) formData.append("manual_lon", manualLon.toString());
     formData.append("existing_urls", JSON.stringify(imageUrls));
+    formData.append("youtube_url", youtubeUrl);
     newFiles.forEach((f) => formData.append("new_files", f));
 
     try {
@@ -354,6 +357,18 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full border rounded-md p-2 h-24 focus:ring-2 focus:ring-teal-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                動画
+              </label>
+              <VideoUploader
+                existingUrl={youtubeUrl}
+                speciesName={speciesName}
+                onUploaded={(url) => setYoutubeUrl(url)}
+                onCleared={() => setYoutubeUrl("")}
               />
             </div>
 
