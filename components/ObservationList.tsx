@@ -4,13 +4,16 @@ import { useState, useCallback, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { Observation, CATEGORIES, CATEGORY_CONFIG } from "@/types";
 import EditModal from "./EditModal";
+import VideoModal from "./VideoModal";
 
 const ObservationCard = memo(function ObservationCard({
   item,
   onClick,
+  onVideoClick,
 }: {
   item: Observation;
   onClick: (item: Observation) => void;
+  onVideoClick: (url: string) => void;
 }) {
   const catCfg = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG["その他"];
   const firstImage = item.image_urls?.[0];
@@ -56,6 +59,15 @@ const ObservationCard = memo(function ObservationCard({
         <p className="text-gray-600 text-sm line-clamp-2">
           {item.notes || ""}
         </p>
+        {item.youtube_url && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onVideoClick(item.youtube_url!); }}
+            className="mt-3 w-full flex items-center justify-center gap-2 bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg hover:bg-red-100 transition border border-red-200"
+          >
+            ▶ 動画を見る
+          </button>
+        )}
       </div>
     </div>
   );
@@ -72,6 +84,8 @@ export default function ObservationList({ items }: Props) {
   const [idFilter, setIdFilter] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
   const [editingItem, setEditingItem] = useState<Observation | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const handleVideoClick = useCallback((url: string) => setVideoUrl(url), []);
   const [toast, setToast] = useState<{
     show: boolean;
     message: string;
@@ -230,6 +244,7 @@ export default function ObservationList({ items }: Props) {
               key={item.id}
               item={item}
               onClick={setEditingItem}
+              onVideoClick={handleVideoClick}
             />
           ))}
         </div>
@@ -245,6 +260,11 @@ export default function ObservationList({ items }: Props) {
             showToast(msg);
           }}
         />
+      )}
+
+      {/* Video Modal */}
+      {videoUrl && (
+        <VideoModal url={videoUrl} onClose={() => setVideoUrl(null)} />
       )}
     </div>
   );

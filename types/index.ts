@@ -13,6 +13,7 @@ export interface Observation {
   notes?: string;
   is_identified: boolean;
   image_urls?: string[];
+  youtube_url?: string;
   user_id?: string;
 }
 

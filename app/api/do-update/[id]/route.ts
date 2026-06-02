@@ -31,6 +31,7 @@ export async function POST(
   const manualLon =
     manualLonStr && manualLonStr !== "" ? parseFloat(manualLonStr) : null;
   const existingUrlsRaw = (formData.get("existing_urls") as string) || "[]";
+  const youtubeUrl = (formData.get("youtube_url") as string) || null;
   const newFiles = formData.getAll("new_files") as File[];
 
   let imageUrls: string[] = JSON.parse(existingUrlsRaw);
@@ -72,6 +73,7 @@ export async function POST(
     category,
     notes,
     image_urls: imageUrls,
+    youtube_url: youtubeUrl || null,
   };
 
   if (observedOn) updateData.observed_on = observedOn;
