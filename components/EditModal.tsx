@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Observation, CATEGORIES, CATEGORY_CONFIG } from "@/types";
 import VideoUploader from "./VideoUploader";
+import ImageLightbox from "./ImageLightbox";
 
 const MapLeaflet = dynamic(() => import("./MapLeaflet"), {
   ssr: false,
@@ -28,6 +29,8 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
   const [locationName, setLocationName] = useState(item.location_name || "");
   const [notes, setNotes] = useState(item.notes || "");
   const [youtubeUrl, setYoutubeUrl] = useState(item.youtube_url || "");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [imageUrls, setImageUrls] = useState<string[]>(item.image_urls || []);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newFilePreviews, setNewFilePreviews] = useState<string[]>([]);
@@ -206,11 +209,12 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
                   <img
                     src={url}
                     alt=""
-                    className="h-full w-48 object-cover rounded-xl border-2 border-white shadow"
+                    onClick={() => setLightboxSrc(url)}
+                    className="h-full w-48 object-cover rounded-xl border-2 border-white shadow cursor-pointer hover:opacity-90 transition"
                   />
                   <button
                     type="button"
-                    onClick={() => removeExistingImage(i)}
+                    onClick={(e) => { e.stopPropagation(); removeExistingImage(i); }}
                     className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center shadow hover:bg-red-600"
                   >
                     ✕
@@ -224,11 +228,12 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
                   <img
                     src={src}
                     alt=""
-                    className="h-full w-48 object-cover rounded-xl border-2 border-teal-400 opacity-80 shadow"
+                    onClick={() => setLightboxSrc(src)}
+                    className="h-full w-48 object-cover rounded-xl border-2 border-teal-400 opacity-80 shadow cursor-pointer hover:opacity-70 transition"
                   />
                   <button
                     type="button"
-                    onClick={() => removeNewImage(i)}
+                    onClick={(e) => { e.stopPropagation(); removeNewImage(i); }}
                     className="absolute top-2 right-2 w-7 h-7 bg-red-500 text-white rounded-full text-xs font-bold flex items-center justify-center shadow hover:bg-red-600"
                   >
                     ✕
@@ -369,6 +374,7 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
                 speciesName={speciesName}
                 onUploaded={(url) => setYoutubeUrl(url)}
                 onCleared={() => setYoutubeUrl("")}
+                onUploadingChange={setVideoUploading}
               />
             </div>
 
@@ -405,15 +411,18 @@ export default function EditModal({ item, onClose, onSaved }: Props) {
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || videoUploading}
                 className="flex-[2] bg-teal-600 text-white py-3 rounded-xl font-bold hover:bg-teal-700 shadow-md transition disabled:opacity-50"
               >
-                {saving ? "保存中..." : "変更を保存する"}
+                {saving ? "保存中..." : videoUploading ? "動画アップロード中..." : "変更を保存する"}
               </button>
             </div>
           </form>
         </div>
       </div>
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
     </div>
   );
 }

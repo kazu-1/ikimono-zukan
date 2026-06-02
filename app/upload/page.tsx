@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { CATEGORIES } from "@/types";
 import VideoUploader from "@/components/VideoUploader";
+import ImageLightbox from "@/components/ImageLightbox";
 
 const MapLeaflet = dynamic(() => import("@/components/MapLeaflet"), {
   ssr: false,
@@ -29,6 +30,8 @@ export default function UploadPage() {
   const [manualLon, setManualLon] = useState<number | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
   const [pendingLat, setPendingLat] = useState<number | null>(null);
@@ -207,7 +210,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="pb-20">
+    <div className="pb-20 overflow-x-hidden">
       {/* Toast */}
       <div
         className={`fixed top-10 right-10 z-[100] transition-all duration-500 pointer-events-none ${
@@ -303,7 +306,8 @@ export default function UploadPage() {
                           key={i}
                           src={src}
                           alt=""
-                          className="w-24 h-24 object-cover rounded-lg shadow-sm flex-shrink-0 border-2 border-white"
+                          onClick={() => setLightboxSrc(src)}
+                          className="w-24 h-24 object-cover rounded-lg shadow-sm flex-shrink-0 border-2 border-white cursor-pointer hover:opacity-90 transition"
                         />
                       ))}
                     </div>
@@ -322,11 +326,11 @@ export default function UploadPage() {
               </label>
               <div className="flex gap-2 items-center">
                 <div
-                  className={`flex-1 h-[46px] px-4 bg-gray-50 border-2 border-gray-100 rounded-xl text-sm flex items-center transition ${
+                  className={`flex-1 min-w-0 h-[46px] px-4 bg-gray-50 border-2 border-gray-100 rounded-xl text-sm flex items-center transition ${
                     locationName ? "text-gray-800" : "text-gray-400"
                   } ${analyzing ? "animate-pulse bg-teal-50" : ""}`}
                 >
-                  <span className="truncate">
+                  <span className="truncate w-full">
                     {analyzing
                       ? "📍 取得中..."
                       : locationName
@@ -436,6 +440,7 @@ export default function UploadPage() {
                 speciesName={speciesName}
                 onUploaded={(url) => setYoutubeUrl(url)}
                 onCleared={() => setYoutubeUrl("")}
+                onUploadingChange={setVideoUploading}
               />
             </div>
 
@@ -450,15 +455,20 @@ export default function UploadPage() {
               </button>
               <button
                 type="submit"
-                disabled={submitting || analyzing}
+                disabled={submitting || analyzing || videoUploading}
                 className="flex-[2] bg-teal-600 text-white py-4 rounded-2xl font-bold hover:bg-teal-700 shadow-lg transition transform active:scale-95 disabled:bg-gray-400"
               >
-                {submitting ? "処理中..." : "投稿を公開する"}
+                {submitting ? "処理中..." : videoUploading ? "動画アップロード中..." : "投稿を公開する"}
               </button>
             </div>
           </form>
         </div>
       </div>
+
+      {/* Image lightbox */}
+      {lightboxSrc && (
+        <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />
+      )}
 
       {/* Map modal */}
       {showMapModal && (
