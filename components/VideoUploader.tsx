@@ -22,7 +22,13 @@ export default function VideoUploader({
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleComingSoon = () => {
+    setShowComingSoon(true);
+    setTimeout(() => setShowComingSoon(false), 3000);
+  };
 
   const handleFile = async (file: File) => {
     if (file.size > 20 * 1024 * 1024) {
@@ -97,25 +103,23 @@ export default function VideoUploader({
   return (
     <div>
       {!hasVideo && status !== "uploading" && status !== "error" && (
-        <label className="cursor-pointer flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-5 hover:border-red-400 hover:bg-red-50 transition">
+        <button
+          type="button"
+          onClick={handleComingSoon}
+          className="w-full flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-xl p-5 hover:border-purple-400 hover:bg-purple-50 transition"
+        >
           <span className="text-2xl">🎬</span>
-          <span className="text-sm font-bold text-gray-500">
-            動画を選択してアップロード
-          </span>
-          <span className="text-xs text-gray-400">
-            MP4・MOV など（YouTube限定公開で保存）
-          </span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
-        </label>
+          {showComingSoon ? (
+            <span className="text-sm font-bold text-purple-600 animate-pulse">
+              現在開発中です！お楽しみに。
+            </span>
+          ) : (
+            <>
+              <span className="text-sm font-bold text-gray-500">動画をアップロード</span>
+              <span className="text-xs text-gray-400">MP4・MOV など（YouTube限定公開で保存）</span>
+            </>
+          )}
+        </button>
       )}
 
       {status === "uploading" && (
@@ -165,6 +169,9 @@ export default function VideoUploader({
           </button>
         </div>
       )}
+
+      {/* TODO: YouTube API 利用制限解除後に handleFile を呼び出す input を復元する */}
+      <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
     </div>
   );
 }
